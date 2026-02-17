@@ -35,7 +35,7 @@ pipeline {
         // ── 4. Verify everything is running ──────────────────
         stage('Health Check') {
             steps {
-                bat 'timeout /t 20 /nobreak >nul'
+                bat 'ping -n 21 127.0.0.1 >nul'
                 bat 'curl -f http://localhost:5000/api/health || exit 1'
                 bat 'curl -f http://localhost:3000 || exit 1'
                 echo 'All services are healthy!'
