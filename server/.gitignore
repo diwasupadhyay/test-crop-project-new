@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# Environment variables (SECRETS - never commit)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
