@@ -1,110 +1,54 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_IMAGE_CLIENT = 'crop-client'
-        DOCKER_IMAGE_SERVER = 'crop-server'
-        DOCKER_TAG          = "${env.BUILD_NUMBER}"
-    }
-
     stages {
-
+        // ── 1. Pull latest code ──────────────────────────────
         stage('Checkout') {
             steps {
                 checkout scm
             }
         }
 
+        // ── 2. Inject secrets ────────────────────────────────
         stage('Setup Environment') {
             steps {
-                // Inject server .env from Jenkins credentials
+                // Copy server .env (Secret File credential)
                 withCredentials([file(credentialsId: 'crop-server-env', variable: 'SERVER_ENV')]) {
                     bat 'copy "%SERVER_ENV%" server\\.env'
                 }
-                // Inject client .env from Jenkins credentials
-                withCredentials([file(credentialsId: 'crop-client-env', variable: 'CLIENT_ENV')]) {
-                    bat 'copy "%CLIENT_ENV%" client\\.env'
+                // Write VITE_GOOGLE_CLIENT_ID for docker-compose build arg (Secret Text credential)
+                withCredentials([string(credentialsId: 'crop-google-client-id', variable: 'GCID')]) {
+                    bat 'echo VITE_GOOGLE_CLIENT_ID=%GCID%> .env'
                 }
             }
         }
 
-        stage('Install Dependencies') {
-            parallel {
-                stage('Server Dependencies') {
-                    steps {
-                        dir('server') {
-                            bat 'npm ci'
-                        }
-                    }
-                }
-                stage('Client Dependencies') {
-                    steps {
-                        dir('client') {
-                            bat 'npm ci'
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Build Client') {
+        // ── 3. Build & Deploy with Docker Compose ────────────
+        stage('Build & Deploy') {
             steps {
-                dir('client') {
-                    bat 'npm run build'
-                }
-            }
-        }
-
-        stage('Docker Build') {
-            parallel {
-                stage('Build Server Image') {
-                    steps {
-                        bat "docker build -t %DOCKER_IMAGE_SERVER%:%DOCKER_TAG% ./server"
-                        bat "docker tag %DOCKER_IMAGE_SERVER%:%DOCKER_TAG% %DOCKER_IMAGE_SERVER%:latest"
-                    }
-                }
-                stage('Build Client Image') {
-                    steps {
-                        bat "docker build -t %DOCKER_IMAGE_CLIENT%:%DOCKER_TAG% ./client"
-                        bat "docker tag %DOCKER_IMAGE_CLIENT%:%DOCKER_TAG% %DOCKER_IMAGE_CLIENT%:latest"
-                    }
-                }
-            }
-        }
-
-        stage('Deploy') {
-            steps {
-                // Stop existing containers
-                bat 'docker-compose down || exit 0'
-                // Start fresh
+                bat 'docker-compose down --remove-orphans 2>nul || exit 0'
                 bat 'docker-compose up --build -d'
             }
         }
 
+        // ── 4. Verify everything is running ──────────────────
         stage('Health Check') {
             steps {
-                // Wait for services to start
-                bat 'timeout /t 15 /nobreak >nul'
-                // Verify backend health
+                bat 'timeout /t 20 /nobreak >nul'
                 bat 'curl -f http://localhost:5000/api/health || exit 1'
-                // Verify frontend serves
                 bat 'curl -f http://localhost:3000 || exit 1'
-                echo 'Health checks passed!'
+                echo 'All services are healthy!'
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline completed successfully! App is live.'
+            echo 'Deployment successful! App is running at http://localhost:3000'
         }
         failure {
-            echo 'Pipeline failed. Check logs above.'
-            // Try to show container logs on failure
-            bat 'docker-compose logs --tail=50 || exit 0'
-        }
-        always {
-            cleanWs()
+            echo 'Pipeline failed! Container logs:'
+            bat 'docker-compose logs --tail=30 2>nul || exit 0'
         }
     }
 }
