@@ -1,14 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-
-let useGoogleLogin
-try {
-  const mod = await import('@react-oauth/google')
-  useGoogleLogin = mod.useGoogleLogin
-} catch {
-  // Google OAuth not available
-}
+import { useGoogleLogin } from '@react-oauth/google'
 
 const Login = () => {
   const [email, setEmail] = useState('')
@@ -18,7 +11,7 @@ const Login = () => {
   const { login, loginWithGoogle } = useAuth()
   const navigate = useNavigate()
 
-  const hasGoogleAuth = !!import.meta.env.VITE_GOOGLE_CLIENT_ID && !!useGoogleLogin
+  const hasGoogleAuth = !!import.meta.env.VITE_GOOGLE_CLIENT_ID
 
   const handleSubmit = async (e) => {
     e.preventDefault()
