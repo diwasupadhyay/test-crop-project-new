@@ -314,14 +314,7 @@ Register/Login → Server returns JWT token
 
 ---
 
-## Team
 
-| Name          | Role               |
-| ------------- | ------------------ |
-| Rahul Sharma  | ML Engineer        |
-| Priya Patel   | Frontend Developer |
-| Amit Kumar    | Backend Developer  |
-| Sneha Reddy   | Data Analyst       |
 
 ---
 
