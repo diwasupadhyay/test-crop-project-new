@@ -1,8 +1,12 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useCallback } from 'react'
 
 const TeamSlider = () => {
-  const [isPaused, setIsPaused] = useState(false)
-  const containerRef = useRef(null)
+  const scrollRef = useRef(null)
+  const isPausedRef = useRef(false)
+  const isDragging = useRef(false)
+  const startX = useRef(0)
+  const scrollLeft = useRef(0)
+  const animationRef = useRef(null)
 
   const teamMembers = [
     {
@@ -38,7 +42,7 @@ const TeamSlider = () => {
     {
       id: 4,
       name: 'Chetanya Joshi',
-      role: 'ML & Frontend Developer',
+      role: 'Frontend Developer',
       image: null,
       quote: 'Bridging machine learning with beautiful interfaces.',
       color: 'from-teal-500 to-cyan-500',
@@ -47,8 +51,69 @@ const TeamSlider = () => {
     }
   ]
 
-  // Duplicate for infinite scroll
-  const duplicatedMembers = [...teamMembers, ...teamMembers]
+  // Triple the items so we have enough content for seamless looping
+  const loopedMembers = [...teamMembers, ...teamMembers, ...teamMembers]
+
+  // Auto-scroll loop
+  const autoScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    if (!isPausedRef.current && !isDragging.current) {
+      el.scrollLeft += 0.8
+      // Reset to maintain seamless loop: when we scroll past the first set, jump back
+      const singleSetWidth = el.scrollWidth / 3
+      if (el.scrollLeft >= singleSetWidth * 2) {
+        el.scrollLeft -= singleSetWidth
+      }
+    }
+    animationRef.current = requestAnimationFrame(autoScroll)
+  }, [])
+
+  useEffect(() => {
+    // Start scrolled to the middle set so we can scroll both directions
+    const el = scrollRef.current
+    if (el) {
+      const singleSetWidth = el.scrollWidth / 3
+      el.scrollLeft = singleSetWidth
+    }
+    animationRef.current = requestAnimationFrame(autoScroll)
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current)
+    }
+  }, [autoScroll])
+
+  // Mouse drag handlers for desktop
+  const handleMouseDown = (e) => {
+    isDragging.current = true
+    startX.current = e.pageX - scrollRef.current.offsetLeft
+    scrollLeft.current = scrollRef.current.scrollLeft
+    scrollRef.current.style.cursor = 'grabbing'
+  }
+
+  const handleMouseUp = () => {
+    isDragging.current = false
+    if (scrollRef.current) scrollRef.current.style.cursor = 'grab'
+  }
+
+  const handleMouseMove = (e) => {
+    if (!isDragging.current) return
+    e.preventDefault()
+    const x = e.pageX - scrollRef.current.offsetLeft
+    const walk = (x - startX.current) * 1.5
+    scrollRef.current.scrollLeft = scrollLeft.current - walk
+  }
+
+  // Handle manual scroll to keep loop seamless
+  const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    const singleSetWidth = el.scrollWidth / 3
+    if (el.scrollLeft <= 0) {
+      el.scrollLeft += singleSetWidth
+    } else if (el.scrollLeft >= singleSetWidth * 2) {
+      el.scrollLeft -= singleSetWidth
+    }
+  }
 
   return (
     <section id="team" className="py-16 md:py-24 bg-[#0f1a0f] overflow-hidden">
@@ -67,25 +132,24 @@ const TeamSlider = () => {
         </div>
       </div>
 
-      {/* Marquee Container - Desktop */}
-      <div 
-        ref={containerRef}
-        className="hidden md:block relative"
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-      >
+      {/* Scrollable Slider - Desktop */}
+      <div className="hidden md:block relative">
         {/* Gradient Overlays */}
         <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#0f1a0f] to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#0f1a0f] to-transparent z-10 pointer-events-none" />
 
-        {/* Scrolling Content */}
-        <div 
-          className={`flex gap-8 py-8 ${isPaused ? '' : 'animate-marquee'}`}
-          style={{
-            animationPlayState: isPaused ? 'paused' : 'running'
-          }}
+        <div
+          ref={scrollRef}
+          className="flex gap-8 py-8 overflow-x-auto scrollbar-hide"
+          style={{ cursor: 'grab', scrollBehavior: 'auto' }}
+          onMouseEnter={() => { isPausedRef.current = true }}
+          onMouseLeave={() => { isPausedRef.current = false; handleMouseUp() }}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          onScroll={handleScroll}
         >
-          {duplicatedMembers.map((member, index) => (
+          {loopedMembers.map((member, index) => (
             <TeamCard key={`${member.id}-${index}`} member={member} />
           ))}
         </div>
