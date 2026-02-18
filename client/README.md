@@ -5,9 +5,9 @@ Crop price prediction web app using Random Forest ML model. B.Tech CSE Capstone 
 ## Tech Stack
 
 - **Frontend**: React 18, Vite, Tailwind CSS, React Router v6
-- **Auth**: Firebase (Email/Password + Google)
-- **Backend**: Node.js, Express.js (planned)
-- **Database**: MongoDB (planned)
+- **Auth**: JWT + Google OAuth
+- **Backend**: Node.js, Express.js
+- **Database**: MongoDB Atlas
 - **ML**: Python, Random Forest (planned)
 - **Deployment**: Docker, Nginx, Jenkins CI/CD
 
@@ -42,12 +42,10 @@ docker run -p 80:80 crop-predictor
 client/
   src/
     components/   # Navbar, Footer, ProtectedRoute, animations
-    context/      # AuthContext (Firebase)
+    context/      # AuthContext (JWT + MongoDB)
     pages/        # Home, Crops, Prediction, Login, Signup
     styles/       # Tailwind + custom CSS
   Dockerfile
-  Jenkinsfile
-  docker-compose.yml
   nginx.conf
 ```
 
