@@ -30,7 +30,7 @@ const Footer = () => {
             {/* Contact Links */}
             <div className="space-y-6">
               <a
-                href="mailto:capstone@university.edu"
+                href="mailto:diwas.23@st.niituniversity.in"
                 className="flex items-center space-x-5 group"
               >
                 <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center group-hover:bg-emerald-500/10 group-hover:border-emerald-500/30 transition-all duration-500">
@@ -40,7 +40,7 @@ const Footer = () => {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">Email us at</p>
-                  <p className="text-white group-hover:text-emerald-400 transition-colors duration-300 font-medium">capstone@university.edu</p>
+                  <p className="text-white group-hover:text-emerald-400 transition-colors duration-300 font-medium">diwas.23@st.niituniversity.in</p>
                 </div>
               </a>
 
