@@ -12,7 +12,7 @@ const TeamSlider = () => {
     {
       id: 1,
       name: 'Diwas',
-      role: 'Full-Stack Developer',
+      role: 'Frontend & Backend Developer',
       image: null,
       quote: 'Leading ideas from vision to reality.',
       color: 'from-emerald-500 to-teal-500',
