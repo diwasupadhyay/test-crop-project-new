@@ -18,7 +18,7 @@ const TeamSlider = () => {
     {
       id: 2,
       name: 'Myra Bhateja',
-      role: 'ML & UI/UX Designer',
+      role: 'ML & AI Developer',
       image: null,
       quote: 'Designing intuitive experiences powered by ML.',
       color: 'from-lime-500 to-green-500',
