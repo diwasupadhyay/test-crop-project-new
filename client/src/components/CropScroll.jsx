@@ -345,15 +345,21 @@ const CropScroll = () => {
               >
                 <div className="max-w-xl">
                   {/* Main Title */}
-                  <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white/95 leading-tight mb-2">
+                  <h2 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight mb-2" style={{
+                    textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.3)'
+                  }}>
                     {overlay.title}
                   </h2>
                   {/* Subtitle */}
-                  <h3 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-emerald-400/90 leading-tight mb-6">
+                  <h3 className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-emerald-400 leading-tight mb-6" style={{
+                    textShadow: '0 2px 8px rgba(0,0,0,0.6), 0 4px 16px rgba(0,0,0,0.3)'
+                  }}>
                     {overlay.subtitle}
                   </h3>
                   {/* Description */}
-                  <p className="text-base sm:text-lg md:text-xl text-white/70 font-sans leading-relaxed max-w-md">
+                  <p className="text-base sm:text-lg md:text-xl text-white/90 font-sans leading-relaxed" style={{
+                    textShadow: '0 1px 6px rgba(0,0,0,0.5), 0 2px 12px rgba(0,0,0,0.3)'
+                  }}>
                     {overlay.description}
                   </p>
                 </div>

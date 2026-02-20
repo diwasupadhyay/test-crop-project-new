@@ -182,11 +182,16 @@ const ScrollFrameAnimation = ({ onAnimationComplete }) => {
           }`}
         />
 
+        {/* Dark gradient overlay for text readability */}
+        <div className="absolute inset-0" style={{
+          background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.3) 50%, transparent 80%)'
+        }} />
+
         {/* Overlay Content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
           {/* Crop Name Badge */}
           <div className={`mb-6 transition-all duration-300 ${isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-            <span className="inline-block px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/80 text-sm font-medium">
+            <span className="inline-block px-4 py-2 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white text-sm font-medium" style={{ textShadow: '0 1px 4px rgba(0,0,0,1), 0 2px 10px rgba(0,0,0,0.9)' }}>
               {currentCrop}
             </span>
           </div>
@@ -194,15 +199,18 @@ const ScrollFrameAnimation = ({ onAnimationComplete }) => {
           {/* Main Headline */}
           <h1 className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 transition-all duration-700 ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}>
+          }`} style={{
+            textShadow: '0 0 10px rgba(0,0,0,1), 0 0 20px rgba(0,0,0,0.9), 0 2px 30px rgba(0,0,0,0.8), 0 4px 40px rgba(0,0,0,0.5)',
+            WebkitTextStroke: '0.5px rgba(0,0,0,0.3)'
+          }}>
             <span className="block">Predict smarter.</span>
             <span className="block text-gradient mt-2">Sell better.</span>
           </h1>
 
           {/* Subtext */}
-          <p className={`text-lg sm:text-xl md:text-2xl text-white/70 max-w-2xl mx-auto mb-8 transition-all duration-700 delay-200 ${
+          <p className={`text-lg sm:text-xl md:text-2xl text-white max-w-2xl mx-auto mb-8 transition-all duration-700 delay-200 ${
             isLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-          }`}>
+          }`} style={{ textShadow: '0 0 8px rgba(0,0,0,1), 0 2px 16px rgba(0,0,0,0.9), 0 4px 30px rgba(0,0,0,0.7)' }}>
             AI-driven crop price insights for farmers
           </p>
 
