@@ -30,6 +30,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['local', 'google'],
     default: 'local'
+  },
+  resetToken: {
+    type: String
+  },
+  resetTokenExpiry: {
+    type: Date
   }
 }, {
   timestamps: true
@@ -50,10 +56,12 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password)
 }
 
-// Strip password from JSON output
+// Strip sensitive fields from JSON output
 userSchema.methods.toJSON = function () {
   const obj = this.toObject()
   delete obj.password
+  delete obj.resetToken
+  delete obj.resetTokenExpiry
   return obj
 }
 

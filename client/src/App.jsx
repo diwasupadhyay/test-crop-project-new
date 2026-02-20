@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
 import { Navbar, Footer, ProtectedRoute } from './components'
-import { Home, Crops, Prediction, Login, Signup } from './pages'
+import { Home, Crops, Prediction, Login, Signup, ForgotPassword, ResetPassword } from './pages'
 import { useAuth } from './context/AuthContext'
 
 function ScrollToTop() {
@@ -25,6 +25,8 @@ function App() {
           <Route path="/crops" element={<Crops />} />
           <Route path="/login" element={currentUser ? <Navigate to="/" /> : <Login />} />
           <Route path="/signup" element={currentUser ? <Navigate to="/" /> : <Signup />} />
+          <Route path="/forgot-password" element={currentUser ? <Navigate to="/" /> : <ForgotPassword />} />
+          <Route path="/reset-password" element={currentUser ? <Navigate to="/" /> : <ResetPassword />} />
           <Route path="/prediction" element={<ProtectedRoute><Prediction /></ProtectedRoute>} />
         </Routes>
       </main>
