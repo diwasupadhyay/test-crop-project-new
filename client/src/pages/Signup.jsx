@@ -3,15 +3,28 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useGoogleLogin } from '@react-oauth/google'
 
+const USER_TYPES = [
+  { value: 'farmer', label: 'Farmer' },
+  { value: 'corporation', label: 'Corporation' },
+  { value: 'interested_individual', label: 'Interested Individual' },
+  { value: 'other', label: 'Other' }
+]
+
 const Signup = () => {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [userType, setUserType] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signup, loginWithGoogle } = useAuth()
+  const { signup, loginWithGoogle, setUserType: updateUserType } = useAuth()
   const navigate = useNavigate()
+
+  // Google OAuth: first-time user type selection state
+  const [showTypeModal, setShowTypeModal] = useState(false)
+  const [googleUserType, setGoogleUserType] = useState('')
+  const [googleLoading, setGoogleLoading] = useState(false)
 
   const hasGoogleAuth = !!import.meta.env.VITE_GOOGLE_CLIENT_ID
 
@@ -27,10 +40,14 @@ const Signup = () => {
       return setError('Password must be at least 6 characters.')
     }
 
+    if (!userType) {
+      return setError('Please select your user type.')
+    }
+
     setLoading(true)
 
     try {
-      await signup(name, email, password)
+      await signup(name, email, password, userType)
       navigate('/')
     } catch (err) {
       setError(err.message || 'Failed to create account. Please try again.')
@@ -42,11 +59,34 @@ const Signup = () => {
   const handleGoogleSignup = async (accessToken) => {
     setError('')
     try {
-      await loginWithGoogle(accessToken)
-      navigate('/')
+      const data = await loginWithGoogle(accessToken, 'signup')
+      if (data.needsUserType) {
+        // First-time Google user — show type selection modal
+        setShowTypeModal(true)
+      } else {
+        navigate('/')
+      }
     } catch (err) {
       setError(err.message || 'Google sign-in failed. Please try again.')
     }
+  }
+
+  const handleGoogleTypeSubmit = async () => {
+    if (!googleUserType) {
+      setError('Please select your user type to continue.')
+      return
+    }
+    setGoogleLoading(true)
+    setError('')
+    try {
+      await updateUserType(googleUserType)
+      // setUserType commits the user into AuthContext, which triggers
+      // the route guard redirect to "/" automatically.
+      setShowTypeModal(false)
+    } catch (err) {
+      setError(err.message || 'Failed to set user type. Please try again.')
+    }
+    setGoogleLoading(false)
   }
 
   return (
@@ -133,6 +173,29 @@ const Signup = () => {
               />
             </div>
 
+            {/* User Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                I am a...
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {USER_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => setUserType(type.value)}
+                    className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all duration-300 ${
+                      userType === type.value
+                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                        : 'bg-white/[0.05] border-white/[0.1] text-gray-400 hover:bg-white/[0.08] hover:text-gray-300'
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Submit */}
             <button
               type="submit"
@@ -180,6 +243,61 @@ const Signup = () => {
           </div>
         </div>
       </div>
+
+      {/* User Type Selection Modal for Google OAuth */}
+      {showTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md bg-[#1a1a2e] border border-white/[0.12] rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+            <h2 className="text-2xl font-bold text-white mb-2 text-center">
+              Welcome! One more step
+            </h2>
+            <p className="text-gray-400 text-sm text-center mb-6">
+              Tell us about yourself so we can personalize your experience.
+            </p>
+
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-3 mb-6">
+              {USER_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => setGoogleUserType(type.value)}
+                  className={`w-full px-4 py-3 rounded-xl border text-sm font-medium transition-all duration-300 text-left ${
+                    googleUserType === type.value
+                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                      : 'bg-white/[0.05] border-white/[0.1] text-gray-400 hover:bg-white/[0.08] hover:text-gray-300'
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleGoogleTypeSubmit}
+              disabled={!googleUserType || googleLoading}
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold hover:from-emerald-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_20px_rgba(16,185,129,0.3)]"
+            >
+              {googleLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Saving...
+                </span>
+              ) : (
+                'Continue'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

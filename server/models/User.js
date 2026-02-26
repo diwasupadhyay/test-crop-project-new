@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema({
   avatar: {
     type: String
   },
+  userType: {
+    type: String,
+    enum: ['farmer', 'corporation', 'interested_individual', 'other'],
+    default: null
+  },
   provider: {
     type: String,
     enum: ['local', 'google'],

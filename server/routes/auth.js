@@ -19,10 +19,15 @@ const generateToken = (userId) => {
 // ── Register ────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body
+    const { name, email, password, userType } = req.body
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'All fields are required' })
+    }
+
+    const validUserTypes = ['farmer', 'corporation', 'interested_individual', 'other']
+    if (!userType || !validUserTypes.includes(userType)) {
+      return res.status(400).json({ error: 'Please select a valid user type' })
     }
 
     if (password.length < 6) {
@@ -34,7 +39,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'An account with this email already exists' })
     }
 
-    const user = new User({ name, email, password, provider: 'local' })
+    const user = new User({ name, email, password, userType, provider: 'local' })
     await user.save()
 
     const token = generateToken(user._id)
@@ -81,7 +86,7 @@ router.post('/login', async (req, res) => {
 // ── Google OAuth ────────────────────────────────────────────
 router.post('/google', async (req, res) => {
   try {
-    const { accessToken } = req.body
+    const { accessToken, mode } = req.body
 
     if (!accessToken) {
       return res.status(400).json({ error: 'Access token is required' })
@@ -112,8 +117,18 @@ router.post('/google', async (req, res) => {
         if (!user.avatar && picture) user.avatar = picture
         await user.save()
       }
+
+      const token = generateToken(user._id)
+      // If existing user still hasn't set their type, prompt them
+      const needsUserType = !user.userType
+      res.json({ token, user: user.toJSON(), ...(needsUserType && { needsUserType: true }) })
     } else {
-      // Create new user
+      // No account found — if this is a login attempt, reject it
+      if (mode === 'login') {
+        return res.status(400).json({ error: 'No account found with this email. Please sign up first.' })
+      }
+
+      // New Google user — create account without userType; client must set it
       user = new User({
         name,
         email,
@@ -122,14 +137,39 @@ router.post('/google', async (req, res) => {
         provider: 'google'
       })
       await user.save()
+
+      const token = generateToken(user._id)
+      // Signal the client that user type selection is needed
+      res.json({ token, user: user.toJSON(), needsUserType: true })
     }
-
-    const token = generateToken(user._id)
-
-    res.json({ token, user: user.toJSON() })
   } catch (error) {
     console.error('Google auth error:', error)
     res.status(500).json({ error: 'Google authentication failed. Please try again.' })
+  }
+})
+
+// ── Set User Type (for Google OAuth first-time users) ───────
+router.put('/set-user-type', auth, async (req, res) => {
+  try {
+    const { userType } = req.body
+    const validUserTypes = ['farmer', 'corporation', 'interested_individual', 'other']
+
+    if (!userType || !validUserTypes.includes(userType)) {
+      return res.status(400).json({ error: 'Please select a valid user type' })
+    }
+
+    const user = await User.findById(req.userId)
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' })
+    }
+
+    user.userType = userType
+    await user.save()
+
+    res.json({ user: user.toJSON() })
+  } catch (error) {
+    console.error('Set user type error:', error)
+    res.status(500).json({ error: 'Server error. Please try again.' })
   }
 })
 

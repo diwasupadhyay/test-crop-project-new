@@ -32,11 +32,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, [])
 
-  const signup = async (name, email, password) => {
+  const signup = async (name, email, password, userType) => {
     const res = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
+      body: JSON.stringify({ name, email, password, userType })
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error)
@@ -58,15 +58,36 @@ export const AuthProvider = ({ children }) => {
     return data
   }
 
-  const loginWithGoogle = async (accessToken) => {
+  const loginWithGoogle = async (accessToken, mode = 'login') => {
     const res = await fetch(`${API_URL}/auth/google`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accessToken })
+      body: JSON.stringify({ accessToken, mode })
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error)
     localStorage.setItem('token', data.token)
+    // Don't set currentUser yet if the user still needs to pick a type.
+    // Setting it would trigger <Navigate to="/" /> and unmount the page.
+    if (!data.needsUserType) {
+      setCurrentUser(data.user)
+    }
+    return data // caller checks data.needsUserType
+  }
+
+  const setUserType = async (userType) => {
+    const token = localStorage.getItem('token')
+    const res = await fetch(`${API_URL}/auth/set-user-type`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ userType })
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error)
+    // Now commit the user into context — this triggers the auth redirect
     setCurrentUser(data.user)
     return data
   }
@@ -81,6 +102,7 @@ export const AuthProvider = ({ children }) => {
     signup,
     login,
     loginWithGoogle,
+    setUserType,
     logout,
     loading,
   }
