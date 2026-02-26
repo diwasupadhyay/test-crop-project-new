@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect } from 'react'
-import { Navbar, Footer, ProtectedRoute } from './components'
+import { Navbar, Footer, ProtectedRoute, UserTypeGate } from './components'
 import { Home, Crops, Prediction, Login, Signup, ForgotPassword, ResetPassword } from './pages'
 import { useAuth } from './context/AuthContext'
 
@@ -18,6 +18,7 @@ function App() {
   return (
     <div className="min-h-screen flex flex-col">
       <ScrollToTop />
+      <UserTypeGate />
       <Navbar />
       <main className="flex-grow">
         <Routes>
