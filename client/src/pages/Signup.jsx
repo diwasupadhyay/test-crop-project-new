@@ -90,32 +90,32 @@ const Signup = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 pt-20">
+    <div className="min-h-screen flex items-center justify-center px-4 py-16">
       {/* Background effects */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-green-500/8 rounded-full blur-[100px]" />
       </div>
 
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-sm">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create Account</h1>
-          <p className="text-gray-400">Join the Crop Price Predictor</p>
+        <div className="text-center mb-5">
+          <h1 className="text-2xl font-bold text-white mb-1">Create Account</h1>
+          <p className="text-gray-400 text-sm">Join the Crop Price Predictor</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/[0.08] backdrop-blur-2xl border border-white/[0.12] rounded-2xl p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)]">
+        <div className="bg-white/[0.08] backdrop-blur-2xl border border-white/[0.12] rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.1)]">
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-xs font-medium text-gray-300 mb-1">
                 Full Name
               </label>
               <input
@@ -123,14 +123,14 @@ const Signup = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300"
                 placeholder="John Doe"
               />
             </div>
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-xs font-medium text-gray-300 mb-1">
                 Email
               </label>
               <input
@@ -138,69 +138,67 @@ const Signup = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300"
                 placeholder="you@example.com"
               />
             </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300"
-                placeholder="••••••••"
-              />
+            {/* Password & Confirm side by side */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300"
+                  placeholder="••••••••"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white text-sm placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300"
+                  placeholder="••••••••"
+                />
+              </div>
             </div>
 
             {/* User Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-xs font-medium text-gray-300 mb-1">
                 I am a...
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <select
+                value={userType}
+                onChange={(e) => setUserType(e.target.value)}
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1] text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all duration-300 appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:16px] bg-[right_12px_center] bg-no-repeat ${
+                  userType ? 'text-white' : 'text-gray-500'
+                }`}
+              >
+                <option value="" disabled className="bg-[#1a1a2e] text-gray-500">Select your role</option>
                 {USER_TYPES.map((type) => (
-                  <button
-                    key={type.value}
-                    type="button"
-                    onClick={() => setUserType(type.value)}
-                    className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all duration-300 ${
-                      userType === type.value
-                        ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
-                        : 'bg-white/[0.05] border-white/[0.1] text-gray-400 hover:bg-white/[0.08] hover:text-gray-300'
-                    }`}
-                  >
+                  <option key={type.value} value={type.value} className="bg-[#1a1a2e] text-white">
                     {type.label}
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
             {/* Submit */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold hover:from-emerald-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_20px_rgba(16,185,129,0.3)]"
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-semibold hover:from-emerald-600 hover:to-green-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_20px_rgba(16,185,129,0.3)]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -219,9 +217,9 @@ const Signup = () => {
           {/* Google Sign Up — only if configured */}
           {hasGoogleAuth && (
             <>
-              <div className="my-6 flex items-center gap-3">
+              <div className="my-4 flex items-center gap-3">
                 <div className="flex-1 h-px bg-white/[0.08]" />
-                <span className="text-gray-500 text-sm">or</span>
+                <span className="text-gray-500 text-xs">or</span>
                 <div className="flex-1 h-px bg-white/[0.08]" />
               </div>
 
@@ -230,7 +228,7 @@ const Signup = () => {
           )}
 
           {/* Login link */}
-          <div className="mt-6 pt-6 border-t border-white/[0.08] text-center">
+          <div className="mt-4 pt-4 border-t border-white/[0.08] text-center">
             <p className="text-gray-400 text-sm">
               Already have an account?{' '}
               <Link
