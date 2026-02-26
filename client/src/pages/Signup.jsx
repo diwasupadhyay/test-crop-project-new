@@ -97,7 +97,7 @@ const Signup = () => {
         <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-green-500/8 rounded-full blur-[100px]" />
       </div>
 
-      <div className="w-full max-w-sm">
+      <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-5">
           <h1 className="text-2xl font-bold text-white mb-1">Create Account</h1>
