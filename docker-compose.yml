@@ -10,6 +10,14 @@ services:
       - ./server/.env
     networks:
       - crop-network
+    depends_on:
+      ml-service:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.50'
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/api/health"]
       interval: 30s
@@ -17,11 +25,10 @@ services:
       retries: 3
       start_period: 15s
 
-  # ── ML Microservice (Python/Flask) ──────────
+  # ── ML Microservice (Python/Gunicorn) ───────
   ml-service:
     build:
       context: ./ml-service
-      network: host
     container_name: test-crop-ml
     restart: unless-stopped
     ports:
@@ -33,6 +40,11 @@ services:
       - ml-models:/app/models
     networks:
       - crop-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.00'
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
       interval: 30s
@@ -55,6 +67,11 @@ services:
         condition: service_healthy
     networks:
       - crop-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
 
 volumes:
   ml-data:
