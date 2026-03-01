@@ -3,6 +3,7 @@ import mongoose from 'mongoose'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import authRoutes from './routes/auth.js'
+import predictionRoutes from './routes/prediction.js'
 
 dotenv.config()
 
@@ -17,6 +18,7 @@ app.use(express.json({ limit: '1mb' }))
 
 // Routes
 app.use('/api/auth', authRoutes)
+app.use('/api', predictionRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

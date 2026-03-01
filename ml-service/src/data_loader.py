@@ -1,0 +1,99 @@
+import os
+import sys
+import requests
+import pandas as pd
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+# Support both running from ml-service/ and from ml-service/src/
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env')
+load_dotenv(env_path)
+
+API_KEY = os.getenv("DATA_GOV_API_KEY")
+BASE_URL = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
+LIMIT = 1000
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'raw')
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, 'crop_prices.csv')
+
+
+def fetch_all_records():
+    """Fetch all records from data.gov.in Agmarknet API with pagination."""
+    if not API_KEY:
+        print("ERROR: DATA_GOV_API_KEY not found in environment variables.")
+        print("Make sure ml-service/.env exists with DATA_GOV_API_KEY=<your_key>")
+        sys.exit(1)
+
+    all_records = []
+    offset = 0
+
+    print(f"Starting data fetch from data.gov.in API...")
+    print(f"Base URL: {BASE_URL}")
+    print(f"Page size (limit): {LIMIT}")
+    print("-" * 60)
+
+    while True:
+        params = {
+            "api-key": API_KEY,
+            "format": "json",
+            "limit": LIMIT,
+            "offset": offset
+        }
+
+        try:
+            response = requests.get(BASE_URL, params=params, timeout=60)
+            response.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print(f"ERROR: API request failed at offset {offset}: {e}")
+            if len(all_records) > 0:
+                print(f"Saving {len(all_records)} records fetched so far...")
+                break
+            else:
+                sys.exit(1)
+
+        data = response.json()
+        records = data.get("records", [])
+        total_available = data.get("total", 0)
+        count = len(records)
+
+        print(f"  Offset {offset:>6}: fetched {count} records (total available: {total_available})")
+
+        if count == 0:
+            break
+
+        all_records.extend(records)
+
+        if count < LIMIT:
+            print(f"  Last page reached (got {count} < {LIMIT})")
+            break
+
+        offset += LIMIT
+
+    print("-" * 60)
+    print(f"Total records fetched: {len(all_records)}")
+
+    if len(all_records) == 0:
+        print("ERROR: No records fetched. Check API key and internet connection.")
+        sys.exit(1)
+
+    return all_records
+
+
+def save_to_csv(records):
+    """Convert records to DataFrame and save as CSV."""
+    df = pd.DataFrame(records)
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    df.to_csv(OUTPUT_FILE, index=False)
+
+    print(f"\nDataFrame shape: {df.shape}")
+    print(f"Columns: {list(df.columns)}")
+    print(f"\nFirst 3 rows:")
+    print(df.head(3).to_string())
+    print(f"\nData saved to: {OUTPUT_FILE}")
+
+    return df
+
+
+if __name__ == "__main__":
+    records = fetch_all_records()
+    df = save_to_csv(records)

@@ -17,6 +17,24 @@ services:
       retries: 3
       start_period: 15s
 
+  # ── ML Microservice (Python/Flask) ──────────
+  ml-service:
+    build: ./ml-service
+    container_name: test-crop-ml
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    env_file:
+      - ./ml-service/.env
+    networks:
+      - crop-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   # ── Frontend (Nginx + React) ────────────────
   client:
     build:
