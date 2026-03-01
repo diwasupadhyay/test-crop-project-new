@@ -141,6 +141,12 @@ const Prediction = () => {
       .catch(() => { setCurrentPriceData(null) })
   }, [selectedCommodity])
 
+  // ── Reset prediction result when any input changes ──
+  useEffect(() => {
+    setPrediction(null)
+    setError('')
+  }, [selectedState, selectedDistrict, selectedMarket, selectedCommodity, selectedMonth, selectedYear, minPrice, maxPrice])
+
   // ── Submit prediction ──
   const handlePredict = useCallback(async () => {
     setError('')
