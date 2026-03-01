@@ -66,8 +66,6 @@ const Prediction = () => {
   const [selectedCommodity, setSelectedCommodity] = useState(initialCrop)
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [minPrice, setMinPrice] = useState('')
-  const [maxPrice, setMaxPrice] = useState('')
 
   // Current price data (from historical dataset)
   const [currentPriceData, setCurrentPriceData] = useState(null)
@@ -94,7 +92,7 @@ const Prediction = () => {
     if (!selectedState) { setDistricts([]); setSelectedDistrict(''); return }
     setLoadingDistricts(true)
     setSelectedDistrict(''); setMarkets([]); setSelectedMarket('')
-    setCommodities([]); setSelectedCommodity(''); setMinPrice(''); setMaxPrice('')
+    setCommodities([]); setSelectedCommodity('')
     fetch(`${API_URL}/districts?state=${encodeURIComponent(selectedState)}`)
       .then(r => r.json())
       .then(data => setDistricts(data.districts || []))
@@ -106,7 +104,7 @@ const Prediction = () => {
   useEffect(() => {
     if (!selectedDistrict) { setMarkets([]); setSelectedMarket(''); return }
     setLoadingMarkets(true)
-    setSelectedMarket(''); setCommodities([]); setSelectedCommodity(''); setMinPrice(''); setMaxPrice('')
+    setSelectedMarket(''); setCommodities([]); setSelectedCommodity('')
     fetch(`${API_URL}/markets-by-district?district=${encodeURIComponent(selectedDistrict)}`)
       .then(r => r.json())
       .then(data => setMarkets(data.markets || []))
@@ -118,7 +116,7 @@ const Prediction = () => {
   useEffect(() => {
     if (!selectedMarket) { setCommodities([]); setSelectedCommodity(''); return }
     setLoadingCommodities(true)
-    setSelectedCommodity(''); setMinPrice(''); setMaxPrice('')
+    setSelectedCommodity('')
     fetch(`${API_URL}/commodities-by-market?market=${encodeURIComponent(selectedMarket)}`)
       .then(r => r.json())
       .then(data => setCommodities(data.commodities || []))
@@ -126,15 +124,13 @@ const Prediction = () => {
       .finally(() => setLoadingCommodities(false))
   }, [selectedMarket])
 
-  // ── Auto-fill price range when commodity changes + store current price ──
+  // ── Fetch current price data when commodity changes ──
   useEffect(() => {
-    if (!selectedCommodity) { setMinPrice(''); setMaxPrice(''); setCurrentPriceData(null); return }
+    if (!selectedCommodity) { setCurrentPriceData(null); return }
     fetch(`${API_URL}/price-range?commodity=${encodeURIComponent(selectedCommodity)}`)
       .then(r => r.json())
       .then(data => {
         if (data.price_range) {
-          setMinPrice(data.price_range.typical_min)
-          setMaxPrice(data.price_range.typical_max)
           setCurrentPriceData(data.price_range)
         }
       })
@@ -145,7 +141,7 @@ const Prediction = () => {
   useEffect(() => {
     setPrediction(null)
     setError('')
-  }, [selectedState, selectedDistrict, selectedMarket, selectedCommodity, selectedMonth, selectedYear, minPrice, maxPrice])
+  }, [selectedState, selectedDistrict, selectedMarket, selectedCommodity, selectedMonth, selectedYear])
 
   // ── Submit prediction ──
   const handlePredict = useCallback(async () => {
@@ -162,9 +158,7 @@ const Prediction = () => {
           state: selectedState,
           market: selectedMarket,
           month: parseInt(selectedMonth),
-          year: parseInt(selectedYear),
-          min_price: parseFloat(minPrice),
-          max_price: parseFloat(maxPrice)
+          year: parseInt(selectedYear)
         })
       })
       const data = await res.json()
@@ -178,9 +172,9 @@ const Prediction = () => {
     } finally {
       setPredicting(false)
     }
-  }, [selectedCommodity, selectedState, selectedMarket, selectedMonth, selectedYear, minPrice, maxPrice])
+  }, [selectedCommodity, selectedState, selectedMarket, selectedMonth, selectedYear])
 
-  const canSubmit = selectedState && selectedDistrict && selectedMarket && selectedCommodity && minPrice && maxPrice && !predicting
+  const canSubmit = selectedState && selectedDistrict && selectedMarket && selectedCommodity && !predicting
 
   const years = []
   for (let y = 2024; y <= 2030; y++) years.push({ value: y, label: String(y) })
@@ -262,28 +256,6 @@ const Prediction = () => {
                     <SelectField label="Year" value={selectedYear} onChange={e => setSelectedYear(e.target.value)}
                       options={years} placeholder="Year..." disabled={false} />
                   </div>
-
-                  {/* Price Range */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">Min Price (₹)</label>
-                      <input type="number" min="0" step="50" value={minPrice} onChange={e => setMinPrice(e.target.value)}
-                        placeholder="e.g. 1800"
-                        className="w-full px-5 py-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-400 mb-2">Max Price (₹)</label>
-                      <input type="number" min="0" step="50" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
-                        placeholder="e.g. 2200"
-                        className="w-full px-5 py-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] text-white placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all" />
-                    </div>
-                  </div>
-
-                  {selectedCommodity && minPrice && maxPrice && (
-                    <p className="text-xs text-gray-500 -mt-2">
-                      Price range auto-filled from historical data. Adjust if needed.
-                    </p>
-                  )}
 
                   {/* Submit */}
                   <button
@@ -397,6 +369,32 @@ const Prediction = () => {
                           <p className="text-lg font-semibold text-green-400">₹{prediction.confidence_interval[1].toLocaleString('en-IN')}</p>
                         </div>
                       </div>
+
+                      {/* Seasonal & Trend indicators */}
+                      {(prediction.seasonal_factor || prediction.year_trend_factor) && (
+                        <div className="grid grid-cols-2 gap-3 mt-4">
+                          {prediction.seasonal_factor && (
+                            <div className={`text-center p-3 rounded-2xl border ${
+                              prediction.seasonal_factor >= 1 ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-amber-500/5 border-amber-500/20'
+                            }`}>
+                              <p className="text-xs text-gray-500 mb-1">Seasonal Effect</p>
+                              <p className={`text-sm font-semibold ${prediction.seasonal_factor >= 1 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                {prediction.seasonal_factor >= 1 ? '↑' : '↓'} {((prediction.seasonal_factor - 1) * 100).toFixed(1)}%
+                              </p>
+                            </div>
+                          )}
+                          {prediction.year_trend_factor && (
+                            <div className={`text-center p-3 rounded-2xl border ${
+                              prediction.year_trend_factor >= 1 ? 'bg-blue-500/5 border-blue-500/20' : 'bg-amber-500/5 border-amber-500/20'
+                            }`}>
+                              <p className="text-xs text-gray-500 mb-1">Year Trend</p>
+                              <p className={`text-sm font-semibold ${prediction.year_trend_factor >= 1 ? 'text-blue-400' : 'text-amber-400'}`}>
+                                {prediction.year_trend_factor >= 1 ? '↑' : '↓'} {((prediction.year_trend_factor - 1) * 100).toFixed(1)}%
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Current Market Price comparison */}
@@ -466,8 +464,6 @@ const Prediction = () => {
                           ['District', selectedDistrict],
                           ['Market', selectedMarket],
                           ['Month', `${MONTHS.find(m => m.value === parseInt(selectedMonth))?.label || ''} ${selectedYear}`],
-                          ['Input Min Price', `₹${parseFloat(minPrice).toLocaleString('en-IN')}`],
-                          ['Input Max Price', `₹${parseFloat(maxPrice).toLocaleString('en-IN')}`],
                         ].map(([label, val]) => (
                           <div key={label} className="flex justify-between items-center py-2 border-b border-white/[0.03] last:border-0">
                             <span className="text-sm text-gray-500">{label}</span>

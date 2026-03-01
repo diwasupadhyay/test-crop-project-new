@@ -18,8 +18,9 @@ MODELS_DIR = os.path.join(BASE_DIR, '..', 'models')
 MODEL_FILE = os.path.join(MODELS_DIR, 'rf_model.pkl')
 IMPORTANCE_FILE = os.path.join(MODELS_DIR, 'feature_importance.png')
 
-FEATURE_NAMES = ['commodity_enc', 'state_enc', 'market_enc', 'month', 'year',
-                 'min_price', 'max_price', 'price_spread']
+FEATURE_NAMES = ['commodity_enc', 'state_enc', 'market_enc',
+                 'month_sin', 'month_cos', 'year',
+                 'commodity_avg_price']
 
 
 def train_model():

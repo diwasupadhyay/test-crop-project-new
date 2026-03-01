@@ -40,7 +40,7 @@ def predict():
         return jsonify({"error": "Request body must be JSON", "status": "error"}), 400
 
     # Validate required fields
-    required_fields = ['commodity', 'state', 'market', 'month', 'year', 'min_price', 'max_price']
+    required_fields = ['commodity', 'state', 'market', 'month', 'year']
     missing = [f for f in required_fields if f not in data]
     if missing:
         return jsonify({
@@ -52,8 +52,6 @@ def predict():
     try:
         month = int(data['month'])
         year = int(data['year'])
-        min_price = float(data['min_price'])
-        max_price = float(data['max_price'])
     except (ValueError, TypeError) as e:
         return jsonify({
             "error": f"Invalid numeric value: {str(e)}",
@@ -63,20 +61,12 @@ def predict():
     if not (1 <= month <= 12):
         return jsonify({"error": "month must be between 1 and 12", "status": "error"}), 400
 
-    if min_price < 0 or max_price < 0:
-        return jsonify({"error": "Prices must be non-negative", "status": "error"}), 400
-
-    if min_price > max_price:
-        return jsonify({"error": "min_price cannot be greater than max_price", "status": "error"}), 400
-
     result = predict_price(
         commodity=str(data['commodity']),
         state=str(data['state']),
         market=str(data['market']),
         month=month,
-        year=year,
-        min_price=min_price,
-        max_price=max_price
+        year=year
     )
 
     if "error" in result:
