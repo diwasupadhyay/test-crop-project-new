@@ -88,6 +88,19 @@ const Navbar = () => {
                   <span className="relative z-10">Login</span>
                 </Link>
               )}
+              {currentUser?.role === 'admin' && (
+                <Link
+                  to="/admin"
+                  className={`relative px-5 py-2.5 text-sm font-medium rounded-full transition-all duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)] text-gray-300 hover:text-white
+                    ${location.pathname === '/admin' ? 'text-white' : 'hover:bg-white/[0.08]'}
+                  `}
+                >
+                  {location.pathname === '/admin' && (
+                    <span className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-500/30 to-orange-500/30 backdrop-blur-xl border border-amber-500/20 shadow-[0_0_20px_rgba(245,158,11,0.2),inset_0_1px_0_rgba(255,255,255,0.1)] transition-all duration-500" />
+                  )}
+                  <span className="relative z-10">Admin</span>
+                </Link>
+              )}
             </div>
 
             {/* Right — Profile (logged in only) */}
@@ -184,6 +197,17 @@ const Navbar = () => {
                   {item.name}
                 </Link>
               ))}
+              {currentUser?.role === 'admin' && (
+                <Link
+                  to="/admin"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`block px-5 py-3.5 rounded-xl text-base font-medium transition-all duration-300 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10
+                    ${location.pathname === '/admin' ? 'text-amber-300 bg-amber-500/10' : ''}
+                  `}
+                >
+                  Admin Panel
+                </Link>
+              )}
             </div>
 
             {/* Mobile auth section */}

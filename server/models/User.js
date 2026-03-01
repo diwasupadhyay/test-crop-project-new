@@ -31,6 +31,11 @@ const userSchema = new mongoose.Schema({
     enum: ['farmer', 'corporation', 'interested_individual', 'other'],
     default: null
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
   provider: {
     type: String,
     enum: ['local', 'google'],
