@@ -31,7 +31,8 @@ pipeline {
         stage('Build & Deploy') {
             steps {
                 bat 'docker-compose down --remove-orphans 2>nul || exit 0'
-                bat 'docker rm -f test-crop-server test-crop-client 2>nul || exit 0'
+                bat 'docker rm -f test-crop-server test-crop-client test-crop-ml 2>nul || exit 0'
+                bat 'docker builder prune -af 2>nul || exit 0'
                 bat 'docker-compose up --build -d'
             }
         }
