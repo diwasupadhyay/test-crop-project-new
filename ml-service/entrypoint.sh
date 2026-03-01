@@ -5,6 +5,10 @@ MODEL_FILE="/app/models/rf_model.pkl"
 DATA_FILE="/app/data/raw/crop_prices.csv"
 VERSION_FILE="/app/models/.model_version"
 
+# Fix volume permissions — Docker named volumes may be root-owned from
+# a previous run, but training needs to write model files.
+chown -R appuser:appgroup /app/data /app/models 2>/dev/null || true
+
 # MODEL_VERSION is baked into the image at build time (see Dockerfile ARG).
 # When the code changes, Jenkins passes a new version (e.g. git commit hash),
 # which triggers a retrain even if a model already exists in the volume.
@@ -41,5 +45,5 @@ if [ "$NEED_RETRAIN" = true ]; then
     echo "=== Model trained and version stamped: $CURRENT_VERSION ==="
 fi
 
-echo "=== Starting Gunicorn (production WSGI server)... ==="
-exec gunicorn --bind 0.0.0.0:5001 --workers 2 --timeout 120 --access-logfile - api.app:app
+echo "=== Starting Gunicorn (production WSGI server) as appuser... ==="
+exec gosu appuser gunicorn --bind 0.0.0.0:5001 --workers 2 --timeout 120 --access-logfile - api.app:app

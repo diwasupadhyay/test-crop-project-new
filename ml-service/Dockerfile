@@ -8,8 +8,10 @@ RUN pip install --no-cache-dir --no-index --find-links=/tmp/wheels/ -r requireme
     || pip install --no-cache-dir --find-links=/tmp/wheels/ -r requirements.txt; \
     rm -rf /tmp/wheels/
 
-# Create non-root user for security
-RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
+# Create non-root user for security + install gosu for privilege drop
+RUN groupadd --system appgroup && useradd --system --gid appgroup appuser \
+    && apt-get update && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
@@ -19,9 +21,14 @@ RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 ARG MODEL_VERSION=dev
 ENV MODEL_VERSION=${MODEL_VERSION}
 
+# Prevent matplotlib from trying to write to a missing home directory
+ENV MPLCONFIGDIR=/tmp/matplotlib
+
 # Ensure writable dirs for volumes (data/models are Docker named volumes)
 RUN mkdir -p /app/data /app/models && chown -R appuser:appgroup /app
 
-USER appuser
+# NOTE: We do NOT set USER here. The entrypoint runs as root to fix
+# volume permissions (named volumes may be root-owned), then starts
+# gunicorn as the non-root appuser via gunicorn's --user flag.
 EXPOSE 5001
 CMD ["bash", "entrypoint.sh"]
