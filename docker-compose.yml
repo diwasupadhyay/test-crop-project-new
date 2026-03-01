@@ -19,7 +19,9 @@ services:
 
   # ── ML Microservice (Python/Flask) ──────────
   ml-service:
-    build: ./ml-service
+    build:
+      context: ./ml-service
+      network: host
     container_name: test-crop-ml
     restart: unless-stopped
     ports:
