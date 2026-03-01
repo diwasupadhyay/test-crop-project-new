@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit'
 import mongoSanitize from 'express-mongo-sanitize'
 import authRoutes from './routes/auth.js'
 import predictionRoutes from './routes/prediction.js'
+import adminRoutes from './routes/admin.js'
 
 dotenv.config()
 
@@ -47,6 +48,7 @@ app.use(express.json({ limit: '1mb' }))
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes)
 app.use('/api', predictionRoutes)
+app.use('/api/admin', adminRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
