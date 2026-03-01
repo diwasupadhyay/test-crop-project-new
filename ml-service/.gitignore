@@ -13,3 +13,6 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
+
+# Pre-downloaded pip wheels (downloaded by Jenkins pipeline)
+wheels/
