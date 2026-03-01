@@ -16,6 +16,10 @@ pipeline {
                 withCredentials([file(credentialsId: 'crop-server-env', variable: 'SERVER_ENV')]) {
                     bat 'copy "%SERVER_ENV%" server\\.env'
                 }
+                // Copy ml-service .env (Secret File credential)
+                withCredentials([file(credentialsId: 'crop-ml-env', variable: 'ML_ENV')]) {
+                    bat 'copy "%ML_ENV%" ml-service\\.env'
+                }
                 // Write VITE_GOOGLE_CLIENT_ID for docker-compose build arg (Secret Text credential)
                 withCredentials([string(credentialsId: 'crop-google-client-id', variable: 'GCID')]) {
                     bat 'echo VITE_GOOGLE_CLIENT_ID=%GCID%> .env'
