@@ -69,6 +69,9 @@ const Prediction = () => {
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
 
+  // Current price data (from historical dataset)
+  const [currentPriceData, setCurrentPriceData] = useState(null)
+
   // Prediction result
   const [prediction, setPrediction] = useState(null)
   const [predicting, setPredicting] = useState(false)
@@ -123,18 +126,19 @@ const Prediction = () => {
       .finally(() => setLoadingCommodities(false))
   }, [selectedMarket])
 
-  // ── Auto-fill price range when commodity changes ──
+  // ── Auto-fill price range when commodity changes + store current price ──
   useEffect(() => {
-    if (!selectedCommodity) { setMinPrice(''); setMaxPrice(''); return }
+    if (!selectedCommodity) { setMinPrice(''); setMaxPrice(''); setCurrentPriceData(null); return }
     fetch(`${API_URL}/price-range?commodity=${encodeURIComponent(selectedCommodity)}`)
       .then(r => r.json())
       .then(data => {
         if (data.price_range) {
           setMinPrice(data.price_range.typical_min)
           setMaxPrice(data.price_range.typical_max)
+          setCurrentPriceData(data.price_range)
         }
       })
-      .catch(() => {})
+      .catch(() => { setCurrentPriceData(null) })
   }, [selectedCommodity])
 
   // ── Submit prediction ──
@@ -388,6 +392,63 @@ const Prediction = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* Current Market Price comparison */}
+                    {currentPriceData && (
+                      <div className="bg-white/[0.02] backdrop-blur-2xl rounded-3xl p-8 border border-amber-500/20">
+                        <div className="flex items-center gap-3 mb-5">
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                            <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-medium text-white">Current Market Price</h3>
+                            <p className="text-xs text-gray-500">Historical median from dataset</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3 mb-5">
+                          <div className="text-center p-3 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                            <p className="text-xs text-gray-500 mb-1">Typical Min</p>
+                            <p className="text-base font-semibold text-amber-400">₹{currentPriceData.typical_min.toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="text-center p-3 bg-amber-500/5 rounded-2xl border border-amber-500/20">
+                            <p className="text-xs text-gray-500 mb-1">Typical Modal</p>
+                            <p className="text-base font-semibold text-white">₹{currentPriceData.typical_modal.toLocaleString('en-IN')}</p>
+                          </div>
+                          <div className="text-center p-3 bg-white/[0.02] rounded-2xl border border-white/[0.05]">
+                            <p className="text-xs text-gray-500 mb-1">Typical Max</p>
+                            <p className="text-base font-semibold text-amber-400">₹{currentPriceData.typical_max.toLocaleString('en-IN')}</p>
+                          </div>
+                        </div>
+
+                        {/* Prediction vs Current comparison */}
+                        {(() => {
+                          const diff = prediction.predicted_price - currentPriceData.typical_modal
+                          const pct = ((diff / currentPriceData.typical_modal) * 100).toFixed(1)
+                          const isHigher = diff > 0
+                          const isLower = diff < 0
+                          return (
+                            <div className={`flex items-center justify-between p-4 rounded-2xl border ${
+                              isHigher ? 'bg-emerald-500/5 border-emerald-500/20' : isLower ? 'bg-red-500/5 border-red-500/20' : 'bg-white/[0.02] border-white/[0.05]'
+                            }`}>
+                              <span className="text-sm text-gray-400">Predicted vs Current</span>
+                              <div className="flex items-center gap-2">
+                                {isHigher ? (
+                                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+                                ) : isLower ? (
+                                  <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                                ) : null}
+                                <span className={`text-sm font-semibold ${
+                                  isHigher ? 'text-emerald-400' : isLower ? 'text-red-400' : 'text-gray-300'
+                                }`}>
+                                  {isHigher ? '+' : ''}{pct}% ({isHigher ? '+' : ''}₹{Math.abs(diff).toLocaleString('en-IN', { maximumFractionDigits: 0 })})
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )}
 
                     {/* Summary card */}
                     <div className="bg-white/[0.02] backdrop-blur-2xl rounded-3xl p-8 border border-white/[0.05]">
