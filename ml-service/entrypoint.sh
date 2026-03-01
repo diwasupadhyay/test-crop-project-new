@@ -20,5 +20,5 @@ else
     echo "=== Model already exists, skipping training. ==="
 fi
 
-echo "=== Starting Flask API... ==="
-exec python api/app.py
+echo "=== Starting Gunicorn (production WSGI server)... ==="
+exec gunicorn --bind 0.0.0.0:5001 --workers 2 --timeout 120 --access-logfile - api.app:app

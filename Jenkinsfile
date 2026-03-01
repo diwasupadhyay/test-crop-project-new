@@ -64,5 +64,9 @@ pipeline {
             echo 'Pipeline failed! Container logs:'
             bat 'docker-compose logs --tail=30 2>nul || exit 0'
         }
+        always {
+            // Clean up dangling images and build cache to prevent disk bloat
+            bat 'docker image prune -f 2>nul || exit 0'
+        }
     }
 }

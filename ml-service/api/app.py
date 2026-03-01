@@ -10,7 +10,10 @@ from predict import predict_price, get_encoder_classes, _load_artifacts
 from lookup import get_states, get_districts, get_markets, get_commodities, get_price_range
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000"])
+
+# Dynamic CORS — defaults to Express server origin; override via ALLOWED_ORIGINS env var
+_allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+CORS(app, origins=[o.strip() for o in _allowed_origins])
 
 # Pre-load model and encoders at startup
 _model_loaded = False
@@ -189,5 +192,7 @@ def server_error(e):
     return jsonify({"error": "Internal server error", "status": "error"}), 500
 
 
+# Gunicorn imports this module directly (api.app:app).
+# Keep this block only as a dev fallback — production uses gunicorn via entrypoint.sh
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=False)
