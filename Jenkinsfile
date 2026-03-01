@@ -46,11 +46,20 @@ pipeline {
         // ── 5. Verify everything is running ──────────────────
         stage('Health Check') {
             steps {
-                // Wait for ML service to fetch data + train model on first run (~2 min)
-                bat 'ping -n 150 127.0.0.1 >nul'
-                bat 'curl -f http://localhost:5000/api/health || exit 1'
-                bat 'curl -f http://localhost:5001/health || exit 1'
-                bat 'curl -f http://localhost:3000 || exit 1'
+                bat '''
+                @echo off
+                setlocal
+                for /L %%i in (1,1,18) do (
+                    curl -sf http://localhost:5000/api/health >nul 2>&1 && curl -sf http://localhost:5001/health >nul 2>&1 && curl -sf http://localhost:3000 >nul 2>&1 && (
+                        echo All services are up after %%i attempts.
+                        exit /b 0
+                    )
+                    echo Attempt %%i/18: services not ready, retrying in 10s...
+                    ping -n 11 127.0.0.1 >nul
+                )
+                echo ERROR: Services did not respond within 3 minutes.
+                exit /b 1
+                '''
                 echo 'All services are healthy!'
             }
         }
