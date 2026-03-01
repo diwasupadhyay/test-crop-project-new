@@ -1,6 +1,12 @@
 import os
+import sys
 import numpy as np
 import joblib
+
+# Ensure src directory is on path for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from seasonal import adjust_prediction, get_seasonal_factor, get_year_trend_factor
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_FILE = os.path.join(BASE_DIR, '..', 'models', 'rf_model.pkl')
@@ -33,7 +39,7 @@ def get_encoder_classes(column_name):
     return list(encoders[column_name].classes_)
 
 
-def predict_price(commodity, state, market, month, year, min_price, max_price):
+def predict_price(commodity, state, market, month, year):
     """
     Predict crop modal price using the trained RandomForest model.
 
@@ -43,8 +49,6 @@ def predict_price(commodity, state, market, month, year, min_price, max_price):
         market (str): Market/mandi name, e.g. "Ludhiana"
         month (int): Month of the year (1-12)
         year (int): Year, e.g. 2025
-        min_price (float): Minimum price in INR per quintal
-        max_price (float): Maximum price in INR per quintal
 
     Returns:
         dict: {"predicted_price": float, "confidence_interval": [lower, upper]}
@@ -65,20 +69,25 @@ def predict_price(commodity, state, market, month, year, min_price, max_price):
             }
         encoded_values[col_name] = le.transform([value])[0]
 
-    # Calculate price_spread
-    price_spread = float(max_price) - float(min_price)
+    # Cyclical month encoding (matches training preprocessing)
+    month_sin = np.sin(2 * np.pi * int(month) / 12)
+    month_cos = np.cos(2 * np.pi * int(month) / 12)
+
+    # Historical average price for this commodity
+    commodity_avg_map = encoders.get('_commodity_avg_price', {})
+    commodity_avg_price = commodity_avg_map.get(commodity, 0.0)
 
     # Build feature array in the same order as training:
-    # [commodity_enc, state_enc, market_enc, month, year, min_price, max_price, price_spread]
+    # [commodity_enc, state_enc, market_enc, month_sin, month_cos, year,
+    #  commodity_avg_price]
     features = np.array([[
         encoded_values['commodity'],
         encoded_values['state'],
         encoded_values['market'],
-        int(month),
+        month_sin,
+        month_cos,
         int(year),
-        float(min_price),
-        float(max_price),
-        price_spread
+        commodity_avg_price
     ]])
 
     # Get predictions from all individual trees for confidence interval
@@ -89,25 +98,56 @@ def predict_price(commodity, state, market, month, year, min_price, max_price):
     mean_prediction = np.mean(tree_predictions)
     std_prediction = np.std(tree_predictions)
 
-    # 95% confidence interval
-    lower = round(float(mean_prediction - 1.96 * std_prediction), 2)
-    upper = round(float(mean_prediction + 1.96 * std_prediction), 2)
+    # Apply seasonal and year-trend adjustments
+    # The base model was trained on single-month data (March 2026), so it cannot
+    # learn temporal patterns. The seasonal module applies known agricultural
+    # price patterns to make month/year inputs meaningful.
+    adjusted_mean = adjust_prediction(mean_prediction, commodity, int(month), int(year))
+    adjusted_lower = adjust_prediction(
+        float(mean_prediction - 1.96 * std_prediction), commodity, int(month), int(year)
+    )
+    adjusted_upper = adjust_prediction(
+        float(mean_prediction + 1.96 * std_prediction), commodity, int(month), int(year)
+    )
+
+    # Include seasonal info in response
+    seasonal_factor = get_seasonal_factor(commodity, int(month))
+    year_trend = get_year_trend_factor(int(year))
 
     return {
-        "predicted_price": round(float(mean_prediction), 2),
-        "confidence_interval": [lower, upper]
+        "predicted_price": round(float(adjusted_mean), 2),
+        "confidence_interval": [round(adjusted_lower, 2), round(adjusted_upper, 2)],
+        "seasonal_factor": round(seasonal_factor, 4),
+        "year_trend_factor": round(year_trend, 4)
     }
 
 
 if __name__ == "__main__":
-    # Quick test
-    result = predict_price(
-        commodity="Wheat",
-        state="Punjab",
-        market="Ludhiana",
-        month=3,
-        year=2025,
-        min_price=1800,
-        max_price=2200
-    )
-    print("Prediction result:", result)
+    # Quick test — compare predictions across different months and years
+    print("=== Monthly variation (same year) ===")
+    for m in [1, 3, 6, 9, 12]:
+        result = predict_price(
+            commodity="Pumpkin",
+            state="Madhya Pradesh",
+            market="Badwani(F&V) APMC",
+            month=m,
+            year=2026,
+        )
+        if "error" in result:
+            print(f"Month {m:2d}: ERROR — {result['error'][:60]}")
+        else:
+            print(f"Month {m:2d}: ₹{result['predicted_price']:>8.2f}  (seasonal={result['seasonal_factor']}, trend={result['year_trend_factor']})")
+
+    print("\n=== Yearly variation (same month) ===")
+    for y in [2025, 2026, 2027, 2028]:
+        result = predict_price(
+            commodity="Pumpkin",
+            state="Madhya Pradesh",
+            market="Badwani(F&V) APMC",
+            month=6,
+            year=y,
+        )
+        if "error" in result:
+            print(f"Year {y}: ERROR — {result['error'][:60]}")
+        else:
+            print(f"Year {y}: ₹{result['predicted_price']:>8.2f}  (seasonal={result['seasonal_factor']}, trend={result['year_trend_factor']})")

@@ -59,12 +59,22 @@ def preprocess():
     print(f"Removed {before_outlier - len(df)} outlier rows (IQR method). Remaining: {len(df)}")
     print(f"  Price range kept: [{lower_bound:.2f}, {upper_bound:.2f}]")
 
-    # Create feature: price_spread
-    df['price_spread'] = df['max_price'] - df['min_price']
+    # ── Cyclical month encoding (captures seasonality properly) ──
+    df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
+    df['month_cos'] = np.cos(2 * np.pi * df['month'] / 12)
+
+    # ── Historical average price per commodity (gives model price-level context) ──
+    commodity_avg = df.groupby('commodity')['modal_price'].mean()
+    commodity_avg_map = commodity_avg.to_dict()
+    df['commodity_avg_price'] = df['commodity'].map(commodity_avg_map)
+    print(f"  Computed commodity_avg_price for {len(commodity_avg_map)} commodities")
 
     # Build feature matrix and target
-    feature_columns = ['commodity_enc', 'state_enc', 'market_enc', 'month', 'year',
-                       'min_price', 'max_price', 'price_spread']
+    # NOTE: min_price, max_price, price_spread REMOVED — they are data leakage
+    # (recorded simultaneously with modal_price, making month/year features irrelevant)
+    feature_columns = ['commodity_enc', 'state_enc', 'market_enc',
+                       'month_sin', 'month_cos', 'year',
+                       'commodity_avg_price']
     X = df[feature_columns].values.astype(np.float64)
     y = df['modal_price'].values.astype(np.float64)
 
@@ -72,7 +82,8 @@ def preprocess():
     print(f"Target y shape: {y.shape}")
     print(f"Feature columns: {feature_columns}")
 
-    # Save encoders
+    # Save encoders + auxiliary data
+    encoders['_commodity_avg_price'] = commodity_avg_map
     os.makedirs(MODELS_DIR, exist_ok=True)
     joblib.dump(encoders, ENCODERS_FILE)
     print(f"\nEncoders saved to: {ENCODERS_FILE}")
