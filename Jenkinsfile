@@ -43,11 +43,13 @@ pipeline {
             }
         }
 
-        // ── 4. Verify everything is running ──────────────────
+        // ── 5. Verify everything is running ──────────────────
         stage('Health Check') {
             steps {
-                bat 'ping -n 21 127.0.0.1 >nul'
+                // Wait for ML service to fetch data + train model on first run (~2 min)
+                bat 'ping -n 150 127.0.0.1 >nul'
                 bat 'curl -f http://localhost:5000/api/health || exit 1'
+                bat 'curl -f http://localhost:5001/health || exit 1'
                 bat 'curl -f http://localhost:3000 || exit 1'
                 echo 'All services are healthy!'
             }
