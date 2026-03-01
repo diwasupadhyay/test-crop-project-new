@@ -37,9 +37,13 @@ pipeline {
         // ── 4. Build & Deploy with Docker Compose ────────────
         stage('Build & Deploy') {
             steps {
+                // GIT_COMMIT is set automatically by Jenkins after 'checkout scm'.
+                // docker-compose reads it as a build arg → baked into ml-service image
+                // → entrypoint.sh compares it with stored version to decide if retraining is needed.
                 bat 'docker-compose down --remove-orphans 2>nul || exit 0'
                 bat 'docker rm -f test-crop-server test-crop-client test-crop-ml 2>nul || exit 0'
-                bat 'docker-compose up --build -d'
+                bat "docker-compose build --build-arg MODEL_VERSION=%GIT_COMMIT% ml-service"
+                bat 'docker-compose up -d'
             }
         }
 

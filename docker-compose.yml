@@ -29,6 +29,8 @@ services:
   ml-service:
     build:
       context: ./ml-service
+      args:
+        MODEL_VERSION: ${GIT_COMMIT:-dev}
     container_name: test-crop-ml
     restart: unless-stopped
     ports:
