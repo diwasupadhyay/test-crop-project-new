@@ -27,7 +27,14 @@ pipeline {
             }
         }
 
-        // ── 3. Build & Deploy with Docker Compose ────────────
+        // ── 3. Download ML dependencies (runs on host, fast) ─
+        stage('Prepare ML Wheels') {
+            steps {
+                bat 'pip download --dest ml-service\\wheels --python-version 3.10 --platform manylinux2014_x86_64 --platform manylinux_2_17_x86_64 --only-binary=:all: -r ml-service\\requirements.txt 2>nul || exit 0'
+            }
+        }
+
+        // ── 4. Build & Deploy with Docker Compose ────────────
         stage('Build & Deploy') {
             steps {
                 bat 'docker-compose down --remove-orphans 2>nul || exit 0'
