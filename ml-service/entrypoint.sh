@@ -50,4 +50,4 @@ if [ "$NEED_RETRAIN" = true ]; then
 fi
 
 echo "=== Starting Gunicorn (production WSGI server) as appuser... ==="
-exec gosu appuser gunicorn --bind 0.0.0.0:5001 --workers 2 --timeout 120 --access-logfile - api.app:app
+exec gosu appuser gunicorn --bind 0.0.0.0:5001 --workers 1 --threads 2 --timeout 120 --access-logfile - api.app:app

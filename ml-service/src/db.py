@@ -6,6 +6,7 @@ collection names used across the application.
 """
 
 import os
+import math
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from dotenv import load_dotenv
 
@@ -54,11 +55,30 @@ def ensure_indexes():
     db = get_db()
 
     # Crop prices — compound unique index for dedup
-    db[CROP_PRICES].create_index(
-        [('state', ASCENDING), ('district', ASCENDING), ('market', ASCENDING),
-         ('commodity', ASCENDING), ('variety', ASCENDING), ('arrival_date', ASCENDING)],
-        unique=True, name='dedup_idx', background=True
-    )
+    # If creation fails due to existing duplicates, clean up first and retry
+    try:
+        db[CROP_PRICES].create_index(
+            [('state', ASCENDING), ('district', ASCENDING), ('market', ASCENDING),
+             ('commodity', ASCENDING), ('variety', ASCENDING), ('arrival_date', ASCENDING)],
+            unique=True, name='dedup_idx', background=True
+        )
+    except Exception as e:
+        if 'duplicate' in str(e).lower() or 'dup key' in str(e).lower():
+            print(f"Unique index creation failed (duplicates exist). Cleaning up...")
+            removed = deduplicate_collection()
+            print(f"Cleaned {removed} duplicates. Retrying index creation...")
+            # Drop the partially-created index if it exists
+            try:
+                db[CROP_PRICES].drop_index('dedup_idx')
+            except Exception:
+                pass
+            db[CROP_PRICES].create_index(
+                [('state', ASCENDING), ('district', ASCENDING), ('market', ASCENDING),
+                 ('commodity', ASCENDING), ('variety', ASCENDING), ('arrival_date', ASCENDING)],
+                unique=True, name='dedup_idx', background=True
+            )
+        else:
+            raise
     # Single-field indexes for cascading lookups
     db[CROP_PRICES].create_index('state', name='state_idx', background=True)
     db[CROP_PRICES].create_index('district', name='district_idx', background=True)
@@ -76,6 +96,74 @@ def ensure_indexes():
     )
 
     print("MongoDB indexes ensured.")
+
+
+def normalize_record(record):
+    """Normalize a record for consistent storage in MongoDB.
+
+    Fixes the root cause of data duplication:
+    - pandas reads empty CSV cells as float NaN
+    - API returns the same fields as empty string ""
+    - MongoDB treats NaN != "", so upsert filter doesn't match → duplicates
+
+    This function ensures all values are clean, comparable types.
+    """
+    normalized = {}
+    for key, value in record.items():
+        if key == '_id':
+            continue  # Skip MongoDB internal field
+        if value is None:
+            normalized[key] = ''
+        elif isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+            normalized[key] = ''
+        elif isinstance(value, str):
+            normalized[key] = value.strip()
+        else:
+            normalized[key] = value
+    return normalized
+
+
+def deduplicate_collection():
+    """Remove duplicate records from crop_prices, keeping the latest.
+
+    Run this once to clean up data that was inserted before normalize_record
+    was in place.
+    """
+    col = get_collection(CROP_PRICES)
+
+    pipeline = [
+        {"$group": {
+            "_id": {
+                "state": "$state",
+                "district": "$district",
+                "market": "$market",
+                "commodity": "$commodity",
+                "variety": "$variety",
+                "arrival_date": "$arrival_date"
+            },
+            "count": {"$sum": 1},
+            "ids": {"$push": "$_id"},
+        }},
+        {"$match": {"count": {"$gt": 1}}}
+    ]
+
+    duplicates = list(col.aggregate(pipeline, allowDiskUse=True))
+
+    if not duplicates:
+        print("No duplicate records found.")
+        return 0
+
+    ids_to_delete = []
+    for group in duplicates:
+        ids = group["ids"]
+        ids_to_delete.extend(ids[1:])  # Keep first, delete rest
+
+    if ids_to_delete:
+        result = col.delete_many({"_id": {"$in": ids_to_delete}})
+        print(f"Removed {result.deleted_count} duplicate records.")
+        return result.deleted_count
+
+    return 0
 
 
 def close():

@@ -114,8 +114,11 @@ def fetch_and_merge_data():
 
 def _fetch_and_merge_mongodb():
     """MongoDB-based fetch and merge — upsert new records, dedup via unique index."""
-    from db import get_collection, CROP_PRICES
+    from db import get_collection, CROP_PRICES, normalize_record, ensure_indexes
     from pymongo import UpdateOne
+
+    # Ensure indexes exist (idempotent)
+    ensure_indexes()
 
     col = get_collection(CROP_PRICES)
     old_count = col.estimated_document_count()
@@ -127,16 +130,17 @@ def _fetch_and_merge_mongodb():
     new_count = len(new_records)
     print(f"New records fetched: {new_count}")
 
-    # Upsert into MongoDB — new data wins for existing keys
+    # Normalize and upsert into MongoDB — new data wins for existing keys
     ops = []
-    for record in new_records:
+    for raw_record in new_records:
+        record = normalize_record(raw_record)
         filter_key = {
-            'state': record.get('state'),
-            'district': record.get('district'),
-            'market': record.get('market'),
-            'commodity': record.get('commodity'),
-            'variety': record.get('variety'),
-            'arrival_date': record.get('arrival_date'),
+            'state': record.get('state', ''),
+            'district': record.get('district', ''),
+            'market': record.get('market', ''),
+            'commodity': record.get('commodity', ''),
+            'variety': record.get('variety', ''),
+            'arrival_date': record.get('arrival_date', ''),
         }
         ops.append(UpdateOne(filter_key, {'$set': record}, upsert=True))
 

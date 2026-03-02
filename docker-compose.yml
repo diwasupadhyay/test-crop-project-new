@@ -8,6 +8,8 @@ services:
       - "5000:5000"
     env_file:
       - ./server/.env
+    environment:
+      ML_SERVICE_URL: http://ml-service:5001
     networks:
       - crop-network
     depends_on:
@@ -37,6 +39,7 @@ services:
       - "5001:5001"
     env_file:
       - ./ml-service/.env
+      - ./server/.env
     volumes:
       - ml-data:/app/data
       - ml-models:/app/models

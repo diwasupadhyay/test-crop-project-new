@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 import datetime
+import traceback
 
 # Add src directory to path so we can import predict module
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src'))
@@ -211,6 +212,45 @@ def health():
     }), 200
 
 
+# ── Admin Data Cleanup Endpoints ─────────────────────────────
+
+@app.route('/admin/data/cleanup', methods=['POST'])
+def data_cleanup():
+    """Normalize all records and remove duplicates from crop_prices collection."""
+    if not _mongo_available:
+        return jsonify({"error": "MongoDB is not available", "status": "error"}), 503
+    try:
+        from db import get_collection, CROP_PRICES, normalize_record, deduplicate_collection, ensure_indexes
+        col = get_collection(CROP_PRICES)
+        before_count = col.estimated_document_count()
+
+        # Step 1: Normalize all existing records in-place
+        normalized = 0
+        for doc in col.find():
+            clean = normalize_record(doc)
+            # Remove _id from the $set payload
+            clean.pop('_id', None)
+            col.update_one({'_id': doc['_id']}, {'$set': clean})
+            normalized += 1
+
+        # Step 2: Ensure unique index exists
+        ensure_indexes()
+
+        # Step 3: Deduplicate
+        removed = deduplicate_collection()
+
+        after_count = col.estimated_document_count()
+        return jsonify({
+            "status": "success",
+            "before_count": before_count,
+            "normalized": normalized,
+            "duplicates_removed": removed,
+            "after_count": after_count,
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e), "status": "error"}), 500
+
+
 # ── Admin Retrain Endpoints ──────────────────────────────────
 
 def _run_retrain():
@@ -248,8 +288,10 @@ def _run_retrain():
 
         print("Retrain complete — model and lookup cache reloaded.")
     except Exception as e:
+        tb = traceback.format_exc()
         error_result = {
             "error": str(e),
+            "traceback": tb,
             "timestamp": datetime.datetime.now().isoformat(),
             "steps": [{"step": "retrain", "status": "failed", "error": str(e)}]
         }
@@ -264,7 +306,7 @@ def _run_retrain():
             except Exception:
                 pass
 
-        print(f"Retrain failed: {e}")
+        print(f"Retrain failed: {e}\n{tb}")
     finally:
         with _retrain_lock:
             _retrain_status["is_running"] = False

@@ -98,4 +98,23 @@ router.get('/backups', async (req, res) => {
   }
 })
 
+// ── POST /api/admin/data/cleanup — deduplicate & normalize MongoDB data ──
+router.post('/data/cleanup', async (req, res) => {
+  try {
+    const response = await axios.post(`${getMLUrl()}/admin/data/cleanup`, {}, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 120000
+    })
+    res.status(response.status).json(response.data)
+  } catch (error) {
+    if (error.response) {
+      res.status(error.response.status).json(error.response.data)
+    } else if (error.code === 'ECONNREFUSED') {
+      res.status(503).json({ error: 'ML service is unavailable.', status: 'error' })
+    } else {
+      res.status(500).json({ error: `ML service error: ${error.message}`, status: 'error' })
+    }
+  }
+})
+
 export default router
