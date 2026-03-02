@@ -16,11 +16,6 @@ RUN groupadd --system appgroup && useradd --system --gid appgroup appuser \
 COPY . .
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
-# Model version — passed by Jenkins as the git commit hash.
-# When code changes, the new hash triggers retraining inside entrypoint.sh.
-ARG MODEL_VERSION=dev
-ENV MODEL_VERSION=${MODEL_VERSION}
-
 # Prevent matplotlib from trying to write to a missing home directory
 ENV MPLCONFIGDIR=/tmp/matplotlib
 

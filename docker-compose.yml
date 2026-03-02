@@ -29,10 +29,7 @@ services:
 
   # ── ML Microservice (Python/Gunicorn) ───────
   ml-service:
-    build:
-      context: ./ml-service
-      args:
-        MODEL_VERSION: ${GIT_COMMIT:-dev}
+    build: ./ml-service
     container_name: test-crop-ml
     restart: unless-stopped
     ports:
