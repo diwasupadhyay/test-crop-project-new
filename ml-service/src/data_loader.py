@@ -94,6 +94,46 @@ def save_to_csv(records):
     return df
 
 
+def save_to_mongodb(records):
+    """Store fetched records in MongoDB crop_prices collection via upsert."""
+    from db import get_collection, CROP_PRICES
+    from pymongo import UpdateOne
+
+    col = get_collection(CROP_PRICES)
+
+    # Upsert each record — new data wins for existing keys
+    ops = []
+    for record in records:
+        filter_key = {
+            'state': record.get('state'),
+            'district': record.get('district'),
+            'market': record.get('market'),
+            'commodity': record.get('commodity'),
+            'variety': record.get('variety'),
+            'arrival_date': record.get('arrival_date'),
+        }
+        ops.append(UpdateOne(filter_key, {'$set': record}, upsert=True))
+
+    if ops:
+        result = col.bulk_write(ops, ordered=False)
+        print(f"\nMongoDB upsert: {result.upserted_count} inserted, "
+              f"{result.modified_count} updated, "
+              f"{result.matched_count} matched")
+
+    total = col.estimated_document_count()
+    print(f"Total records in MongoDB: {total}")
+    return total
+
+
 if __name__ == "__main__":
     records = fetch_all_records()
+
+    # Save to CSV (local backup / backward compatibility)
     df = save_to_csv(records)
+
+    # Save to MongoDB (primary store)
+    try:
+        save_to_mongodb(records)
+    except Exception as e:
+        print(f"WARNING: MongoDB save failed: {e}")
+        print("Data is still saved to CSV.")

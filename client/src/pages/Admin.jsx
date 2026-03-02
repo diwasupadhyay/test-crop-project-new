@@ -249,7 +249,10 @@ const Admin = () => {
                         <>
                           <StatMini label="Previous Rows" value={retrainStatus.last_result.data.old_rows?.toLocaleString()} />
                           <StatMini label="New Fetched" value={retrainStatus.last_result.data.new_rows_fetched?.toLocaleString()} />
-                          <StatMini label="Dupes Removed" value={retrainStatus.last_result.data.duplicates_removed?.toLocaleString()} />
+                          <StatMini label={retrainStatus.last_result.data.upserted != null ? 'New Inserted' : 'Dupes Removed'}
+                                    value={retrainStatus.last_result.data.upserted != null
+                                      ? retrainStatus.last_result.data.upserted?.toLocaleString()
+                                      : retrainStatus.last_result.data.duplicates_removed?.toLocaleString()} />
                           <StatMini label="Final Rows" value={retrainStatus.last_result.data.merged_rows?.toLocaleString()} />
                         </>
                       )}
@@ -283,7 +286,7 @@ const Admin = () => {
                     <StatCard label="States" value={dataStats.states} icon="state" />
                     <StatCard label="Commodities" value={dataStats.commodities} icon="crop" />
                     <StatCard label="Markets" value={dataStats.markets} icon="market" />
-                    <StatCard label="File Size" value={`${dataStats.file_size_mb} MB`} icon="file" />
+                    <StatCard label="Storage" value={dataStats.storage === 'mongodb' ? 'MongoDB' : `CSV (${dataStats.file_size_mb} MB)`} icon="file" />
                     {dataStats.date_range && (
                       <StatCard label="Date Range" value={`${dataStats.date_range.min} → ${dataStats.date_range.max}`} icon="date" small />
                     )}
@@ -347,7 +350,10 @@ const Admin = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {backups.map((b, i) => (
                       <div key={i} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
-                        <p className="text-sm font-medium text-gray-300 mb-2">{formatBackupName(b.name)}</p>
+                        <p className="text-sm font-medium text-gray-300 mb-2">{formatBackupName(b.backup_name || b.name)}</p>
+                        {b.row_count != null && (
+                          <p className="text-xs text-gray-500 mb-2">{b.row_count.toLocaleString()} rows backed up</p>
+                        )}
                         <div className="flex flex-wrap gap-1.5">
                           {b.files.map((f, j) => (
                             <span key={j} className="text-xs px-2 py-0.5 rounded-full bg-white/[0.05] text-gray-400">

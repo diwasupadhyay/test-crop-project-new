@@ -3,12 +3,14 @@ import axios from 'axios'
 
 const router = express.Router()
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:5001'
+function getMLUrl() {
+  return process.env.ML_SERVICE_URL || 'http://ml-service:5001'
+}
 
 // Helper to proxy GET requests with query params
 const proxyGet = (mlPath) => async (req, res) => {
   try {
-    const response = await axios.get(`${ML_SERVICE_URL}${mlPath}`, {
+    const response = await axios.get(`${getMLUrl()}${mlPath}`, {
       params: req.query,
       timeout: 10000
     })
@@ -29,7 +31,7 @@ const proxyGet = (mlPath) => async (req, res) => {
  */
 router.post('/predict', async (req, res) => {
   try {
-    const response = await axios.post(`${ML_SERVICE_URL}/predict`, req.body, {
+    const response = await axios.post(`${getMLUrl()}/predict`, req.body, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 30000
     })

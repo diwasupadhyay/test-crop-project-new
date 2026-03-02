@@ -5,7 +5,9 @@ import adminOnly from '../middleware/adminOnly.js'
 
 const router = express.Router()
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://ml-service:5001'
+function getMLUrl() {
+  return process.env.ML_SERVICE_URL || 'http://ml-service:5001'
+}
 
 /**
  * All admin routes require authentication + admin role.
@@ -16,7 +18,7 @@ router.use(adminOnly)
 // ── POST /api/admin/retrain — trigger model retrain ──────
 router.post('/retrain', async (req, res) => {
   try {
-    const response = await axios.post(`${ML_SERVICE_URL}/admin/retrain`, {}, {
+    const response = await axios.post(`${getMLUrl()}/admin/retrain`, {}, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 15000
     })
@@ -35,7 +37,7 @@ router.post('/retrain', async (req, res) => {
 // ── GET /api/admin/retrain/status ────────────────────────
 router.get('/retrain/status', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_SERVICE_URL}/admin/retrain/status`, { timeout: 10000 })
+    const response = await axios.get(`${getMLUrl()}/admin/retrain/status`, { timeout: 10000 })
     res.status(response.status).json(response.data)
   } catch (error) {
     if (error.response) {
@@ -51,7 +53,7 @@ router.get('/retrain/status', async (req, res) => {
 // ── GET /api/admin/retrain/history ───────────────────────
 router.get('/retrain/history', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_SERVICE_URL}/admin/retrain/history`, { timeout: 10000 })
+    const response = await axios.get(`${getMLUrl()}/admin/retrain/history`, { timeout: 10000 })
     res.status(response.status).json(response.data)
   } catch (error) {
     if (error.response) {
@@ -67,7 +69,7 @@ router.get('/retrain/history', async (req, res) => {
 // ── GET /api/admin/data/stats ────────────────────────────
 router.get('/data/stats', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_SERVICE_URL}/admin/data/stats`, { timeout: 10000 })
+    const response = await axios.get(`${getMLUrl()}/admin/data/stats`, { timeout: 10000 })
     res.status(response.status).json(response.data)
   } catch (error) {
     if (error.response) {
@@ -83,7 +85,7 @@ router.get('/data/stats', async (req, res) => {
 // ── GET /api/admin/backups ───────────────────────────────
 router.get('/backups', async (req, res) => {
   try {
-    const response = await axios.get(`${ML_SERVICE_URL}/admin/backups`, { timeout: 10000 })
+    const response = await axios.get(`${getMLUrl()}/admin/backups`, { timeout: 10000 })
     res.status(response.status).json(response.data)
   } catch (error) {
     if (error.response) {
