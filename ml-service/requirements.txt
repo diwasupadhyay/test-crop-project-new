@@ -8,3 +8,4 @@ matplotlib>=3.9
 requests>=2.31
 python-dotenv>=1.0
 gunicorn>=22.0
+pymongo[srv]>=4.6

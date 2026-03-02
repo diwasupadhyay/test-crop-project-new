@@ -31,10 +31,14 @@ fi
 
 # Fetch data if not present
 if [ ! -f "$DATA_FILE" ]; then
-    echo "=== Data not found. Fetching from data.gov.in... ==="
-    python src/data_loader.py
+    echo "=== Data not found locally. Checking MongoDB / fetching... ==="
+    python src/init_data.py || {
+        echo "=== MongoDB init failed. Falling back to API fetch... ==="
+        python src/data_loader.py
+    }
 else
-    echo "=== Data already exists, skipping fetch. ==="
+    echo "=== Local data exists. Syncing to MongoDB if needed... ==="
+    python src/init_data.py || echo "=== MongoDB sync skipped (not configured). ==="
 fi
 
 # Train model if needed

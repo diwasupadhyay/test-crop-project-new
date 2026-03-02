@@ -12,8 +12,23 @@ ENCODERS_FILE = os.path.join(MODELS_DIR, 'encoders.pkl')
 
 def preprocess():
     """Load raw data, clean, encode, remove outliers, and return features and target."""
-    print("Loading data from:", DATA_FILE)
-    df = pd.read_csv(DATA_FILE)
+
+    # ── Load data: MongoDB primary, CSV fallback ──────────────
+    df = None
+    try:
+        from db import get_collection, CROP_PRICES
+        col = get_collection(CROP_PRICES)
+        data = list(col.find({}, {'_id': 0}))
+        if data:
+            df = pd.DataFrame(data)
+            print(f"Loaded {len(df)} records from MongoDB")
+    except Exception as e:
+        print(f"MongoDB read failed: {e}")
+
+    if df is None or df.empty:
+        print(f"Falling back to CSV: {DATA_FILE}")
+        df = pd.read_csv(DATA_FILE)
+
     print(f"Raw data shape: {df.shape}")
 
     # Convert price columns to numeric
