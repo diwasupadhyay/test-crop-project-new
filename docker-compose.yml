@@ -55,7 +55,7 @@ services:
       interval: 30s
       timeout: 15s
       retries: 5
-      start_period: 120s
+      start_period: 300s
 
   # ── Frontend (Nginx + React) ────────────────
   client:
