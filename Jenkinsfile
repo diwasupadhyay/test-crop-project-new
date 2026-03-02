@@ -42,7 +42,7 @@ pipeline {
                 // → entrypoint.sh compares it with stored version to decide if retraining is needed.
                 bat 'docker-compose down --remove-orphans 2>nul || exit 0'
                 bat 'docker rm -f test-crop-server test-crop-client test-crop-ml 2>nul || exit 0'
-                bat "docker-compose build --build-arg MODEL_VERSION=%GIT_COMMIT% ml-service"
+                bat "docker-compose build --no-cache --build-arg MODEL_VERSION=%GIT_COMMIT% ml-service"
                 bat 'docker-compose up -d'
             }
         }
