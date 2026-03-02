@@ -14,14 +14,41 @@ from retrain import full_retrain, backup_current_artifacts
 
 app = Flask(__name__)
 
-# ── Retraining state (in-memory) ─────────────────────────────
+# ── MongoDB availability flag ─────────────────────────────────
+_mongo_available = False
+try:
+    from db import get_db, get_collection, ensure_indexes
+    from db import CROP_PRICES, RETRAIN_HISTORY, DATASET_BACKUPS
+    get_db()
+    ensure_indexes()
+    _mongo_available = True
+    print("MongoDB connected and indexes ensured.")
+except Exception as e:
+    print(f"WARNING: MongoDB unavailable ({e}). Using file-based fallbacks.")
+
+# ── Retraining state (in-memory for is_running; MongoDB for history) ──
 _retrain_lock = threading.Lock()
 _retrain_status = {
     "is_running": False,
     "last_run": None,
     "last_result": None,
-    "history": [],          # list of past retrain summaries
 }
+
+# Load last retrain result from MongoDB on startup
+if _mongo_available:
+    try:
+        _last = get_collection(RETRAIN_HISTORY).find_one(
+            {}, {'_id': 0}, sort=[('timestamp', -1)]
+        )
+        if _last:
+            # Convert datetime to ISO string for JSON serialization
+            if isinstance(_last.get('timestamp'), datetime.datetime):
+                _last['timestamp'] = _last['timestamp'].isoformat()
+            _retrain_status["last_run"] = _last.get("timestamp")
+            _retrain_status["last_result"] = _last
+            print(f"Loaded last retrain result from MongoDB (ran: {_last.get('timestamp')})")
+    except Exception as e:
+        print(f"Warning: Could not load retrain history from MongoDB: {e}")
 
 # Dynamic CORS — defaults to Express server origin; override via ALLOWED_ORIGINS env var
 _allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
@@ -191,13 +218,21 @@ def _run_retrain():
     global _model_loaded
     try:
         summary = full_retrain()
-        summary["timestamp"] = datetime.datetime.now().isoformat()
+        now = datetime.datetime.now()
+        summary["timestamp"] = now.isoformat()
+
         with _retrain_lock:
             _retrain_status["last_result"] = summary
             _retrain_status["last_run"] = summary["timestamp"]
-            _retrain_status["history"].insert(0, summary)
-            # Keep only last 20 entries
-            _retrain_status["history"] = _retrain_status["history"][:20]
+
+        # Persist retrain result in MongoDB
+        if _mongo_available:
+            try:
+                doc = {**summary, "timestamp": now}
+                get_collection(RETRAIN_HISTORY).insert_one(doc)
+                print("Retrain result saved to MongoDB.")
+            except Exception as db_err:
+                print(f"Warning: Failed to save retrain result to MongoDB: {db_err}")
 
         # Reload model artifacts so new predictions use the fresh model
         from predict import _load_artifacts as _reload
@@ -213,13 +248,22 @@ def _run_retrain():
 
         print("Retrain complete — model and lookup cache reloaded.")
     except Exception as e:
+        error_result = {
+            "error": str(e),
+            "timestamp": datetime.datetime.now().isoformat(),
+            "steps": [{"step": "retrain", "status": "failed", "error": str(e)}]
+        }
         with _retrain_lock:
-            _retrain_status["last_result"] = {
-                "error": str(e),
-                "timestamp": datetime.datetime.now().isoformat(),
-                "steps": [{"step": "retrain", "status": "failed", "error": str(e)}]
-            }
-            _retrain_status["history"].insert(0, _retrain_status["last_result"])
+            _retrain_status["last_result"] = error_result
+
+        # Persist failure in MongoDB too
+        if _mongo_available:
+            try:
+                doc = {**error_result, "timestamp": datetime.datetime.now()}
+                get_collection(RETRAIN_HISTORY).insert_one(doc)
+            except Exception:
+                pass
+
         print(f"Retrain failed: {e}")
     finally:
         with _retrain_lock:
@@ -263,17 +307,74 @@ def retrain_status():
 
 @app.route('/admin/retrain/history', methods=['GET'])
 def retrain_history():
-    """Return the last N retrain results."""
-    with _retrain_lock:
-        return jsonify({
-            "history": _retrain_status["history"],
-            "status": "success"
-        }), 200
+    """Return the last N retrain results from MongoDB."""
+    if _mongo_available:
+        try:
+            cursor = get_collection(RETRAIN_HISTORY).find(
+                {}, {'_id': 0}
+            ).sort('timestamp', -1).limit(20)
+            history = []
+            for doc in cursor:
+                # Convert datetime to ISO string for JSON
+                if isinstance(doc.get('timestamp'), datetime.datetime):
+                    doc['timestamp'] = doc['timestamp'].isoformat()
+                history.append(doc)
+            return jsonify({"history": history, "status": "success"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e), "status": "error"}), 500
+    else:
+        # Fallback: return in-memory last result only
+        with _retrain_lock:
+            last = _retrain_status.get("last_result")
+            return jsonify({
+                "history": [last] if last else [],
+                "status": "success"
+            }), 200
 
 
 @app.route('/admin/data/stats', methods=['GET'])
 def data_stats():
-    """Return basic stats about the current dataset."""
+    """Return basic stats about the current dataset from MongoDB."""
+    if _mongo_available:
+        try:
+            col = get_collection(CROP_PRICES)
+            total = col.estimated_document_count()
+            if total == 0:
+                return jsonify({"error": "No dataset found", "status": "error"}), 404
+
+            # Aggregation for unique counts and date range
+            pipeline = [
+                {"$group": {
+                    "_id": None,
+                    "states": {"$addToSet": "$state"},
+                    "commodities": {"$addToSet": "$commodity"},
+                    "markets": {"$addToSet": "$market"},
+                    "min_date": {"$min": "$arrival_date"},
+                    "max_date": {"$max": "$arrival_date"},
+                }}
+            ]
+            agg = list(col.aggregate(pipeline))
+            if agg:
+                r = agg[0]
+                stats = {
+                    "total_rows": total,
+                    "states": len(r.get("states", [])),
+                    "commodities": len(r.get("commodities", [])),
+                    "markets": len(r.get("markets", [])),
+                    "storage": "mongodb",
+                    "date_range": {
+                        "min": r.get("min_date", "unknown"),
+                        "max": r.get("max_date", "unknown"),
+                    },
+                }
+            else:
+                stats = {"total_rows": total, "storage": "mongodb"}
+
+            return jsonify({"stats": stats, "status": "success"}), 200
+        except Exception as e:
+            return jsonify({"error": str(e), "status": "error"}), 500
+
+    # ── CSV fallback ──────────────────────────────────────────
     import pandas as pd
     data_file = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                              '..', 'data', 'raw', 'crop_prices.csv')
@@ -288,10 +389,9 @@ def data_stats():
             "states": int(df['state'].nunique()) if 'state' in df.columns else 0,
             "commodities": int(df['commodity'].nunique()) if 'commodity' in df.columns else 0,
             "markets": int(df['market'].nunique()) if 'market' in df.columns else 0,
+            "storage": "csv",
             "file_size_mb": round(os.path.getsize(data_file) / (1024 * 1024), 2),
         }
-
-        # Date range
         if 'arrival_date' in df.columns:
             dates = pd.to_datetime(df['arrival_date'], format='mixed', dayfirst=True, errors='coerce').dropna()
             if not dates.empty:
@@ -299,7 +399,6 @@ def data_stats():
                     "min": str(dates.min().date()),
                     "max": str(dates.max().date()),
                 }
-
         return jsonify({"stats": stats, "status": "success"}), 200
     except Exception as e:
         return jsonify({"error": str(e), "status": "error"}), 500
@@ -307,21 +406,38 @@ def data_stats():
 
 @app.route('/admin/backups', methods=['GET'])
 def list_backups():
-    """List available backups."""
+    """List available backups (MongoDB primary, filesystem fallback)."""
+    backups = []
+
+    # Try MongoDB first
+    if _mongo_available:
+        try:
+            cursor = get_collection(DATASET_BACKUPS).find(
+                {}, {'_id': 0}
+            ).sort('timestamp', -1).limit(50)
+            for doc in cursor:
+                if isinstance(doc.get('timestamp'), datetime.datetime):
+                    doc['timestamp'] = doc['timestamp'].isoformat()
+                backups.append(doc)
+            if backups:
+                return jsonify({"backups": backups, "status": "success"}), 200
+        except Exception as e:
+            print(f"Warning: MongoDB backup query failed: {e}")
+
+    # Filesystem fallback
     backup_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               '..', 'data', 'backups')
     if not os.path.exists(backup_dir):
         return jsonify({"backups": [], "status": "success"}), 200
 
-    backups = []
     for name in sorted(os.listdir(backup_dir), reverse=True):
         path = os.path.join(backup_dir, name)
         if os.path.isdir(path):
             files = os.listdir(path)
             backups.append({
-                "name": name,
+                "backup_name": name,
                 "files": files,
-                "created": name,  # folder name IS the timestamp
+                "timestamp": name,
             })
 
     return jsonify({"backups": backups, "status": "success"}), 200

@@ -13,15 +13,31 @@ _lookup_data = None
 
 
 def _load_lookup():
-    """Load the CSV and build lookup dictionaries. Cached after first call."""
+    """Load crop data and build lookup dictionaries. Cached after first call."""
     global _lookup_data
     if _lookup_data is not None:
         return _lookup_data
 
-    if not os.path.exists(DATA_FILE):
-        raise FileNotFoundError(f"Data file not found: {DATA_FILE}. Run data_loader.py first.")
+    # ── Load data: MongoDB primary, CSV fallback ──────────────
+    df = None
+    try:
+        from db import get_collection, CROP_PRICES
+        col = get_collection(CROP_PRICES)
+        data = list(col.find({}, {'_id': 0}))
+        if data:
+            df = pd.DataFrame(data)
+            print(f"Lookup: loaded {len(df)} records from MongoDB")
+    except Exception as e:
+        print(f"Lookup: MongoDB failed ({e}), falling back to CSV")
 
-    df = pd.read_csv(DATA_FILE)
+    if df is None or df.empty:
+        if not os.path.exists(DATA_FILE):
+            raise FileNotFoundError(
+                f"No data available in MongoDB or CSV ({DATA_FILE}). "
+                "Run data_loader.py or init_data.py first."
+            )
+        df = pd.read_csv(DATA_FILE)
+        print(f"Lookup: loaded {len(df)} records from CSV")
 
     # Convert prices to numeric
     df['min_price'] = pd.to_numeric(df['min_price'], errors='coerce')
