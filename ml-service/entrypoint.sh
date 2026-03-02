@@ -32,20 +32,21 @@ fi
 # Fetch data if not present
 if [ ! -f "$DATA_FILE" ]; then
     echo "=== Data not found locally. Checking MongoDB / fetching... ==="
-    python src/init_data.py || {
+    gosu appuser python src/init_data.py || {
         echo "=== MongoDB init failed. Falling back to API fetch... ==="
-        python src/data_loader.py
+        gosu appuser python src/data_loader.py
     }
 else
     echo "=== Local data exists. Syncing to MongoDB if needed... ==="
-    python src/init_data.py || echo "=== MongoDB sync skipped (not configured). ==="
+    gosu appuser python src/init_data.py || echo "=== MongoDB sync skipped (not configured). ==="
 fi
 
 # Train model if needed
 if [ "$NEED_RETRAIN" = true ]; then
     echo "=== Training model... ==="
-    python src/train.py
+    gosu appuser python src/train.py
     echo "$CURRENT_VERSION" > "$VERSION_FILE"
+    chown appuser:appgroup "$VERSION_FILE"
     echo "=== Model trained and version stamped: $CURRENT_VERSION ==="
 fi
 
