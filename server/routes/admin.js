@@ -5,7 +5,7 @@ import adminOnly from '../middleware/adminOnly.js'
 
 const router = express.Router()
 
-const getMLUrl = () => process.env.ML_SERVICE_URL || 'http://localhost:5001'
+const getMLUrl = () => process.env.ML_SERVICE_URL || 'http://ml-service:5001'
 
 /**
  * All admin routes require authentication + admin role.
