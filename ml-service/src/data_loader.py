@@ -96,21 +96,25 @@ def save_to_csv(records):
 
 def save_to_mongodb(records):
     """Store fetched records in MongoDB crop_prices collection via upsert."""
-    from db import get_collection, CROP_PRICES
+    from db import get_collection, CROP_PRICES, normalize_record, ensure_indexes
     from pymongo import UpdateOne
+
+    # Ensure indexes exist (idempotent)
+    ensure_indexes()
 
     col = get_collection(CROP_PRICES)
 
-    # Upsert each record — new data wins for existing keys
+    # Normalize and upsert each record — new data wins for existing keys
     ops = []
-    for record in records:
+    for raw_record in records:
+        record = normalize_record(raw_record)
         filter_key = {
-            'state': record.get('state'),
-            'district': record.get('district'),
-            'market': record.get('market'),
-            'commodity': record.get('commodity'),
-            'variety': record.get('variety'),
-            'arrival_date': record.get('arrival_date'),
+            'state': record.get('state', ''),
+            'district': record.get('district', ''),
+            'market': record.get('market', ''),
+            'commodity': record.get('commodity', ''),
+            'variety': record.get('variety', ''),
+            'arrival_date': record.get('arrival_date', ''),
         }
         ops.append(UpdateOne(filter_key, {'$set': record}, upsert=True))
 

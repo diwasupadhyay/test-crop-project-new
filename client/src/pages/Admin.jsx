@@ -12,6 +12,7 @@ const Admin = () => {
   const [backups, setBackups] = useState([])
   const [loading, setLoading] = useState(true)
   const [triggering, setTriggering] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
 
@@ -32,6 +33,7 @@ const Admin = () => {
   const fetchRetrainStatus = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/admin/retrain/status`, { headers })
+      if (res.status === 429) return // rate-limited, skip silently
       if (res.ok) {
         const data = await res.json()
         setRetrainStatus(data)
@@ -74,7 +76,7 @@ const Admin = () => {
     if (!retrainStatus?.is_running) return
     const interval = setInterval(async () => {
       await fetchRetrainStatus()
-    }, 3000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [retrainStatus?.is_running])
 
@@ -112,6 +114,34 @@ const Admin = () => {
     } catch (err) {
       setError('Could not connect to the server.')
       setTriggering(false)
+    }
+  }
+
+  // ── Trigger data cleanup ──────────────────────────────────
+  const handleCleanup = async () => {
+    setError('')
+    setSuccessMsg('')
+    setCleaning(true)
+    try {
+      const res = await fetch(`${API_URL}/admin/data/cleanup`, {
+        method: 'POST',
+        headers,
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Cleanup failed')
+        setCleaning(false)
+        return
+      }
+      setSuccessMsg(
+        `Cleanup complete! Normalized ${data.normalized?.toLocaleString()} records, removed ${data.duplicates_removed?.toLocaleString()} duplicates. (${data.before_count?.toLocaleString()} → ${data.after_count?.toLocaleString()} rows)`
+      )
+      await fetchDataStats()
+      setTimeout(() => setSuccessMsg(''), 12000)
+    } catch (err) {
+      setError('Could not connect to the server.')
+    } finally {
+      setCleaning(false)
     }
   }
 
@@ -293,6 +323,39 @@ const Admin = () => {
                   </div>
                 ) : (
                   <p className="text-gray-500">No dataset found. Run retraining to fetch data.</p>
+                )}
+
+                {/* Cleanup / Deduplicate button */}
+                {dataStats?.storage === 'mongodb' && (
+                  <div className="mt-6 flex items-center gap-4">
+                    <button
+                      onClick={handleCleanup}
+                      disabled={cleaning || isRunning}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-300
+                        ${cleaning
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 cursor-not-allowed'
+                          : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 active:scale-95'
+                        }`}
+                    >
+                      {cleaning ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Cleaning...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Clean Duplicates
+                        </>
+                      )}
+                    </button>
+                    <span className="text-xs text-gray-500">Normalize records &amp; remove duplicate entries from MongoDB</span>
+                  </div>
                 )}
               </div>
             </AnimatedSection>

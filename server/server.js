@@ -20,14 +20,14 @@ app.use(helmet())
 // Prevent NoSQL injection — strips $ and . from req.body/query/params
 app.use(mongoSanitize())
 
-// Global rate limiter — 100 requests per 15 min per IP
-app.use(rateLimit({
+// Global rate limiter — 200 requests per 15 min per IP (public + prediction routes)
+const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.', status: 'error' }
-}))
+})
 
 // Stricter rate limiter for auth endpoints — 20 requests per 15 min per IP
 const authLimiter = rateLimit({
@@ -36,6 +36,15 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many auth attempts, please try again later.', status: 'error' }
+})
+
+// Admin limiter — generous (500 req / 15 min) because the panel polls status frequently
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many admin requests, please try again later.', status: 'error' }
 })
 
 // CORS
@@ -47,8 +56,8 @@ app.use(express.json({ limit: '1mb' }))
 
 // ── Routes ───────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes)
-app.use('/api', predictionRoutes)
-app.use('/api/admin', adminRoutes)
+app.use('/api/admin', adminLimiter, adminRoutes)
+app.use('/api', globalLimiter, predictionRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

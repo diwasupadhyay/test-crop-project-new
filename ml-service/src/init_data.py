@@ -14,7 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from db import get_collection, ensure_indexes, CROP_PRICES
+from db import get_collection, ensure_indexes, CROP_PRICES, normalize_record
+from db import deduplicate_collection
 
 
 def init_data():
@@ -23,6 +24,13 @@ def init_data():
     ensure_indexes()
 
     col = get_collection(CROP_PRICES)
+
+    # ── Clean up duplicates from previous buggy runs ──────────
+    try:
+        deduplicate_collection()
+    except Exception as e:
+        print(f"  Warning: Dedup cleanup failed: {e}")
+
     count = col.estimated_document_count()
 
     if count > 0:
@@ -40,7 +48,7 @@ def init_data():
 
         print(f"Migrating existing CSV ({csv_path}) to MongoDB...")
         df = pd.read_csv(csv_path)
-        records = df.to_dict('records')
+        records = [normalize_record(r) for r in df.to_dict('records')]
 
         if records:
             try:
@@ -57,7 +65,8 @@ def init_data():
     from data_loader import fetch_all_records
     from pymongo.errors import BulkWriteError
 
-    records = fetch_all_records()
+    raw_records = fetch_all_records()
+    records = [normalize_record(r) for r in raw_records]
     if records:
         try:
             col.insert_many(records, ordered=False)
