@@ -1,12 +1,11 @@
 FROM python:3.10-slim
 WORKDIR /app
 
-# Copy pre-downloaded wheels and install (offline first, online fallback for any missing)
-COPY wheels/ /tmp/wheels/
+# Install Python dependencies from PyPI.
+# (Pre-downloaded wheels in wheels/ are a Jenkins/offline optimization,
+#  but cloud platforms like Render/Railway have internet during build.)
 COPY requirements.txt .
-RUN pip install --no-cache-dir --no-index --find-links=/tmp/wheels/ -r requirements.txt 2>/dev/null \
-    || pip install --no-cache-dir --find-links=/tmp/wheels/ -r requirements.txt; \
-    rm -rf /tmp/wheels/
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Create non-root user for security + install gosu for privilege drop
 RUN groupadd --system appgroup && useradd --system --gid appgroup appuser \
@@ -24,6 +23,7 @@ RUN mkdir -p /app/data /app/models && chown -R appuser:appgroup /app
 
 # NOTE: We do NOT set USER here. The entrypoint runs as root to fix
 # volume permissions (named volumes may be root-owned), then starts
-# gunicorn as the non-root appuser via gunicorn's --user flag.
-EXPOSE 5001
+# gunicorn as the non-root appuser via gosu.
+# PORT is set dynamically by Render/Railway; defaults to 5001.
+EXPOSE ${PORT:-5001}
 CMD ["bash", "entrypoint.sh"]

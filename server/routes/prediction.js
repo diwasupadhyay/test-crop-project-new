@@ -12,14 +12,14 @@ const proxyGet = (mlPath) => async (req, res) => {
   try {
     const response = await axios.get(`${getMLUrl()}${mlPath}`, {
       params: req.query,
-      timeout: 10000
+      timeout: 120000
     })
     res.status(response.status).json(response.data)
   } catch (error) {
     if (error.response) {
       res.status(error.response.status).json(error.response.data)
-    } else if (error.code === 'ECONNREFUSED') {
-      res.status(503).json({ error: 'ML service is unavailable. Please try again later.', status: 'error' })
+    } else if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+      res.status(503).json({ error: 'ML service is starting up or unavailable. Please try again in a moment.', status: 'error' })
     } else {
       res.status(500).json({ error: `ML service error: ${error.message}`, status: 'error' })
     }
@@ -33,14 +33,14 @@ router.post('/predict', async (req, res) => {
   try {
     const response = await axios.post(`${getMLUrl()}/predict`, req.body, {
       headers: { 'Content-Type': 'application/json' },
-      timeout: 30000
+      timeout: 120000
     })
     res.status(response.status).json(response.data)
   } catch (error) {
     if (error.response) {
       res.status(error.response.status).json(error.response.data)
-    } else if (error.code === 'ECONNREFUSED') {
-      res.status(503).json({ error: 'ML service is unavailable. Please try again later.', status: 'error' })
+    } else if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ECONNABORTED') {
+      res.status(503).json({ error: 'ML service is starting up or unavailable. Please try again in a moment.', status: 'error' })
     } else {
       res.status(500).json({ error: `ML service error: ${error.message}`, status: 'error' })
     }

@@ -2,11 +2,14 @@
 MongoDB connection manager for the ML service.
 
 Provides shared access to the crop-predictor database and defines
-collection names used across the application.
+collection names used across the application.  Also handles persistent
+model artifact storage via GridFS so trained models survive ephemeral
+filesystem resets (e.g. Render / Railway free-tier sleep cycles).
 """
 
 import os
 import math
+import datetime
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from dotenv import load_dotenv
 
@@ -173,3 +176,182 @@ def close():
         _client.close()
         _client = None
         _db = None
+
+
+# ── Persistent model artifact storage (GridFS) ───────────────
+#
+# Naming convention in GridFS:
+#   "rf_model.pkl"     → currently active model
+#   "rf_model.pkl.bak" → previous (backup) model
+#   "encoders.pkl"     → currently active encoders
+#   "encoders.pkl.bak" → previous (backup) encoders
+#
+# On every save: current → .bak (overwrite old .bak), new → current.
+# So at most 2 copies exist per artifact (active + 1 backup).
+
+MODEL_ARTIFACTS = 'model_artifacts'     # metadata collection
+
+
+def _gridfs():
+    """Return a GridFS handle for the model_files bucket."""
+    import gridfs
+    return gridfs.GridFS(get_db(), collection='model_files')
+
+
+def _delete_gridfs_file(fs, filename):
+    """Delete ALL GridFS files with the given filename."""
+    for existing in fs.find({'filename': filename}):
+        fs.delete(existing._id)
+
+
+def save_model_to_mongo(file_path, artifact_name=None):
+    """
+    Save a model artifact to MongoDB GridFS with backup rotation.
+
+    - Promotes the current active artifact → .bak  (overwriting any old .bak)
+    - Saves the new file as the active artifact
+    - Result: exactly 1 active + 1 backup per artifact name
+
+    Args:
+        file_path: Local path to the artifact file
+        artifact_name: Name to store under (defaults to filename)
+    Returns:
+        True if saved successfully, False otherwise.
+    """
+    if not os.path.exists(file_path):
+        print(f"  [model-store] File not found, skipping: {file_path}")
+        return False
+
+    fs = _gridfs()
+    name = artifact_name or os.path.basename(file_path)
+    bak_name = name + '.bak'
+
+    # Step 1: Delete old backup
+    _delete_gridfs_file(fs, bak_name)
+
+    # Step 2: Rename current active → .bak (read → write → delete)
+    current = fs.find_one({'filename': name}, sort=[('uploadDate', DESCENDING)])
+    if current is not None:
+        data = current.read()
+        fs.put(data, filename=bak_name, uploaded_at=datetime.datetime.now(),
+               note='backup — previous active model')
+        _delete_gridfs_file(fs, name)
+        print(f"  [model-store] Moved '{name}' → '{bak_name}' (backup)")
+
+    # Step 3: Upload new active artifact
+    with open(file_path, 'rb') as f:
+        fs.put(f, filename=name, uploaded_at=datetime.datetime.now())
+
+    size_kb = os.path.getsize(file_path) / 1024
+    print(f"  [model-store] Saved '{name}' to MongoDB ({size_kb:.1f} KB)")
+    return True
+
+
+def restore_model_from_mongo(file_path, artifact_name=None):
+    """
+    Restore the active model artifact from MongoDB GridFS to local disk.
+    Falls back to the .bak version if the active one is missing/corrupt.
+
+    Returns True if restored, False otherwise.
+    """
+    fs = _gridfs()
+    name = artifact_name or os.path.basename(file_path)
+
+    # Try active first, then backup
+    for try_name in [name, name + '.bak']:
+        try:
+            grid_file = fs.find_one({'filename': try_name},
+                                     sort=[('uploadDate', DESCENDING)])
+            if grid_file is None:
+                continue
+
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, 'wb') as f:
+                f.write(grid_file.read())
+
+            size_kb = os.path.getsize(file_path) / 1024
+            label = "active" if try_name == name else "backup"
+            print(f"  [model-store] Restored '{name}' from MongoDB "
+                  f"({label}, {size_kb:.1f} KB)")
+            return True
+        except Exception as e:
+            print(f"  [model-store] Failed to restore '{try_name}': {e}")
+
+    print(f"  [model-store] '{name}' not found in MongoDB (active or backup)")
+    return False
+
+
+def save_all_artifacts():
+    """Save all model artifacts (model + encoders) to MongoDB with backup rotation."""
+    from train import MODEL_FILE
+    from preprocessing import ENCODERS_FILE
+
+    saved = 0
+    for path in [MODEL_FILE, ENCODERS_FILE]:
+        try:
+            if save_model_to_mongo(path):
+                saved += 1
+        except Exception as e:
+            print(f"  [model-store] Error saving {path}: {e}")
+    print(f"  [model-store] {saved} artifact(s) saved (each has 1 active + 1 backup max)")
+    return saved
+
+
+def restore_all_artifacts():
+    """
+    Restore all model artifacts from MongoDB to local disk.
+    Returns True if the model file was successfully restored.
+    """
+    from train import MODEL_FILE
+    from preprocessing import ENCODERS_FILE
+
+    model_ok = False
+    for path in [MODEL_FILE, ENCODERS_FILE]:
+        try:
+            result = restore_model_from_mongo(path)
+            if path == MODEL_FILE:
+                model_ok = result
+        except Exception as e:
+            print(f"  [model-store] Error restoring {path}: {e}")
+    return model_ok
+
+
+def cleanup_old_retrain_history(keep=20):
+    """Delete retrain history entries beyond the most recent `keep` entries."""
+    try:
+        col = get_collection(RETRAIN_HISTORY)
+        total = col.estimated_document_count()
+        if total <= keep:
+            return 0
+        # Find the timestamp of the keep-th newest entry
+        cutoff_doc = col.find({}, {'timestamp': 1}).sort('timestamp', DESCENDING).skip(keep).limit(1)
+        cutoff_list = list(cutoff_doc)
+        if not cutoff_list:
+            return 0
+        cutoff_ts = cutoff_list[0]['timestamp']
+        result = col.delete_many({'timestamp': {'$lt': cutoff_ts}})
+        print(f"  [cleanup] Removed {result.deleted_count} old retrain history entries")
+        return result.deleted_count
+    except Exception as e:
+        print(f"  [cleanup] History cleanup failed: {e}")
+        return 0
+
+
+def cleanup_old_backup_metadata(keep=10):
+    """Delete dataset backup metadata entries beyond the most recent `keep`."""
+    try:
+        col = get_collection(DATASET_BACKUPS)
+        total = col.estimated_document_count()
+        if total <= keep:
+            return 0
+        cutoff_doc = col.find({}, {'timestamp': 1}).sort('timestamp', DESCENDING).skip(keep).limit(1)
+        cutoff_list = list(cutoff_doc)
+        if not cutoff_list:
+            return 0
+        cutoff_ts = cutoff_list[0]['timestamp']
+        result = col.delete_many({'timestamp': {'$lt': cutoff_ts}})
+        print(f"  [cleanup] Removed {result.deleted_count} old backup metadata entries")
+        return result.deleted_count
+    except Exception as e:
+        print(f"  [cleanup] Backup metadata cleanup failed: {e}")
+        return 0
