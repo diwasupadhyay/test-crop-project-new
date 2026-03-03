@@ -13,6 +13,9 @@ dotenv.config()
 
 const app = express()
 
+// Trust reverse proxy (Render, Railway, etc.) so rate-limiter gets real client IPs
+app.set('trust proxy', 1)
+
 // ── Security middleware ──────────────────────────────────────
 // Helmet — sets secure HTTP headers (XSS, clickjacking, MIME sniffing, etc.)
 app.use(helmet())
