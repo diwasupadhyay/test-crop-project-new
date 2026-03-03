@@ -55,6 +55,43 @@ if _mongo_available:
 _allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
 CORS(app, origins=[o.strip() for o in _allowed_origins])
 
+# ── Background training for first-ever deploy ───────────────
+_initial_training = False  # True while background training is running
+
+def _background_initial_train():
+    """Train model in background so Gunicorn can start serving immediately."""
+    global _model_loaded, _initial_training
+    try:
+        print("=== BACKGROUND TRAINING: Starting initial model training... ===")
+        from train import train_model
+        train_model()
+        print("=== BACKGROUND TRAINING: Training complete. ===")
+
+        # Save to MongoDB for future deploys
+        if _mongo_available:
+            try:
+                from db import save_all_artifacts
+                save_all_artifacts()
+                print("=== BACKGROUND TRAINING: Model saved to MongoDB. ===")
+            except Exception as e:
+                print(f"Warning: Could not save model to MongoDB: {e}")
+
+        # Reload into memory
+        from predict import _load_artifacts as _reload
+        import predict as predict_module
+        predict_module._model = None
+        predict_module._encoders = None
+        _reload()
+        _model_loaded = True
+        print("=== BACKGROUND TRAINING: Model loaded. /predict is now live! ===")
+    except Exception as e:
+        print(f"=== BACKGROUND TRAINING FAILED: {e} ===")
+        import traceback as _tb
+        _tb.print_exc()
+    finally:
+        _initial_training = False
+
+
 # Pre-load model and encoders at startup
 # If files aren't on disk yet (ephemeral FS), try restoring from MongoDB first
 _model_loaded = False
@@ -74,13 +111,19 @@ except FileNotFoundError as e:
                 print("Model restored from MongoDB and loaded successfully.")
             else:
                 print("WARNING: Model not found in MongoDB either.")
-                print("The /predict endpoint will not work until you run train.py.")
+                print("Starting background training thread...")
+                _initial_training = True
+                threading.Thread(target=_background_initial_train, daemon=True).start()
         except Exception as restore_err:
             print(f"WARNING: MongoDB model restore failed: {restore_err}")
-            print("The /predict endpoint will not work until you run train.py.")
+            print("Starting background training thread...")
+            _initial_training = True
+            threading.Thread(target=_background_initial_train, daemon=True).start()
     else:
         print("WARNING: MongoDB unavailable, cannot restore model.")
-        print("The /predict endpoint will not work until you run train.py.")
+        print("Starting background training thread...")
+        _initial_training = True
+        threading.Thread(target=_background_initial_train, daemon=True).start()
 
 
 @app.route('/predict', methods=['POST'])
@@ -225,7 +268,8 @@ def health():
     """Health check endpoint."""
     return jsonify({
         "status": "ok",
-        "model_loaded": _model_loaded
+        "model_loaded": _model_loaded,
+        "training_in_progress": _initial_training
     }), 200
 
 

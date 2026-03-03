@@ -38,19 +38,12 @@ else
     gosu appuser python src/init_data.py || echo "=== MongoDB sync skipped (not configured). ==="
 fi
 
-# ── Step 3: Only train if no model exists (neither disk nor MongoDB had one)
+# ── Step 3: Start Gunicorn IMMEDIATELY ─────────────────────
+# Do NOT train here — it blocks too long and Render's port scanner
+# times out. If no model exists, app.py will kick off a background
+# training thread after Gunicorn is serving requests.
 if [ ! -f "$MODEL_FILE" ]; then
-    echo "=== Model not found anywhere. Training initial model... ==="
-    gosu appuser python src/train.py
-    echo "=== Initial model trained. Saving to MongoDB for persistence... ==="
-    gosu appuser python -c "
-import sys; sys.path.insert(0, 'src')
-try:
-    from db import save_all_artifacts
-    save_all_artifacts()
-except Exception as e:
-    print(f'Warning: Could not save model to MongoDB: {e}')
-" || echo "=== MongoDB save skipped. ==="
+    echo "=== Model not found. Will train in background after Gunicorn starts. ==="
 else
     echo "=== Model exists. Skipping training. Use Admin Panel to retrain. ==="
 fi
