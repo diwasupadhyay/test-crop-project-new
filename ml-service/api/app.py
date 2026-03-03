@@ -56,14 +56,31 @@ _allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000').sp
 CORS(app, origins=[o.strip() for o in _allowed_origins])
 
 # Pre-load model and encoders at startup
+# If files aren't on disk yet (ephemeral FS), try restoring from MongoDB first
 _model_loaded = False
 try:
     _load_artifacts()
     _model_loaded = True
     print("Model and encoders loaded successfully at startup.")
 except FileNotFoundError as e:
-    print(f"WARNING: {e}")
-    print("The /predict endpoint will not work until you run train.py.")
+    print(f"Model not on disk: {e}")
+    if _mongo_available:
+        try:
+            from db import restore_all_artifacts
+            restored = restore_all_artifacts()
+            if restored:
+                _load_artifacts()
+                _model_loaded = True
+                print("Model restored from MongoDB and loaded successfully.")
+            else:
+                print("WARNING: Model not found in MongoDB either.")
+                print("The /predict endpoint will not work until you run train.py.")
+        except Exception as restore_err:
+            print(f"WARNING: MongoDB model restore failed: {restore_err}")
+            print("The /predict endpoint will not work until you run train.py.")
+    else:
+        print("WARNING: MongoDB unavailable, cannot restore model.")
+        print("The /predict endpoint will not work until you run train.py.")
 
 
 @app.route('/predict', methods=['POST'])

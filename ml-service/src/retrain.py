@@ -259,6 +259,20 @@ def full_retrain():
     try:
         train_model()
         summary["steps"].append({"step": "train", "status": "success"})
+
+        # Step 3b — persist model to MongoDB so it survives sleep/redeploy
+        print("\nSaving trained model to MongoDB for persistence...")
+        try:
+            from db import save_all_artifacts, cleanup_old_retrain_history, cleanup_old_backup_metadata
+            saved = save_all_artifacts()
+            summary["steps"].append({"step": "persist_model", "status": "success", "artifacts_saved": saved})
+
+            # Housekeeping — cap MongoDB metadata so it doesn't grow forever
+            cleanup_old_retrain_history(keep=20)
+            cleanup_old_backup_metadata(keep=10)
+        except Exception as e:
+            summary["steps"].append({"step": "persist_model", "status": "failed", "error": str(e)})
+            print(f"Warning: Could not persist model to MongoDB: {e}")
     except Exception as e:
         summary["steps"].append({"step": "train", "status": "failed", "error": str(e)})
         print(f"Training failed: {e}")
