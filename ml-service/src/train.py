@@ -47,14 +47,16 @@ def train_model():
         "min_samples_leaf": [1, 2, 4]
     }
 
-    # RandomizedSearchCV
-    print("\nStarting RandomizedSearchCV (n_iter=20, cv=5)...")
+    # RandomizedSearchCV — use lighter search for faster training on free-tier
+    n_iter = 5
+    cv_folds = 3
+    print(f"\nStarting RandomizedSearchCV (n_iter={n_iter}, cv={cv_folds})...")
     rf = RandomForestRegressor(random_state=42)
     search = RandomizedSearchCV(
         estimator=rf,
         param_distributions=param_grid,
-        n_iter=20,
-        cv=5,
+        n_iter=n_iter,
+        cv=cv_folds,
         scoring="r2",
         n_jobs=-1,
         random_state=42,
