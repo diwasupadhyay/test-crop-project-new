@@ -37,6 +37,8 @@ services:
     env_file:
       - ./ml-service/.env
       - ./server/.env
+    environment:
+      PORT: "5001"          # override server/.env PORT=5000
     volumes:
       - ml-data:/app/data
       - ml-models:/app/models
