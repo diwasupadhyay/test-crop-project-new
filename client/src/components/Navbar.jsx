@@ -15,7 +15,7 @@ const Navbar = () => {
     { name: 'About', path: '/#about' },
     { name: 'Crops', path: '/crops' },
     { name: 'Prediction', path: '/prediction' },
-    { name: 'Team', path: '/#team' },
+    { name: 'Team', path: '/team' },
   ]
 
   // Close profile dropdown on outside click
