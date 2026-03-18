@@ -1,0 +1,45 @@
+name: Keep Services Awake
+
+on:
+  schedule:
+    - cron: "*/8 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping backend health
+        env:
+          BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
+        run: |
+          if [ -z "$BACKEND_HEALTH_URL" ]; then
+            echo "Missing secret: BACKEND_HEALTH_URL"
+            exit 1
+          fi
+
+          echo "Pinging backend: $BACKEND_HEALTH_URL"
+          code=$(curl -L -sS -o /dev/null -w "%{http_code}" --connect-timeout 15 --max-time 30 --retry 3 --retry-delay 5 "$BACKEND_HEALTH_URL")
+          echo "Backend status: $code"
+          if [ "$code" -ge 400 ]; then
+            echo "Backend ping failed"
+            exit 1
+          fi
+
+      - name: Ping ml-service health
+        env:
+          ML_HEALTH_URL: ${{ secrets.ML_HEALTH_URL }}
+        run: |
+          if [ -z "$ML_HEALTH_URL" ]; then
+            echo "Missing secret: ML_HEALTH_URL"
+            exit 1
+          fi
+
+          echo "Pinging ML service: $ML_HEALTH_URL"
+          code=$(curl -L -sS -o /dev/null -w "%{http_code}" --connect-timeout 15 --max-time 30 --retry 3 --retry-delay 5 "$ML_HEALTH_URL")
+          echo "ML status: $code"
+          if [ "$code" -ge 400 ]; then
+            echo "ML ping failed"
+            exit 1
+          fi
