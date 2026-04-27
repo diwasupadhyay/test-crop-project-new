@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { 
   CropScroll,
-  TeamSlider, 
+  TeamSolo, 
   AnimatedSection,
   StaggerContainer,
   AnimatedCounter 
@@ -183,7 +183,7 @@ const Home = () => {
       </section>
 
       {/* Team Section — Solo (original TeamSlider kept for presentations) */}
-      <TeamSlider />
+      <TeamSolo />
     </div>
   )
 }
